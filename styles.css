@@ -1,0 +1,134 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+  background: #ffffff;
+  color: #333;
+}
+
+nav {
+  background: #003366;
+  padding: 10px 0;
+}
+
+nav ul {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+}
+
+nav ul li {
+  margin: 0 20px;
+}
+
+nav a {
+  color: #fff;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 30px 20px;
+}
+
+.profile {
+  display: flex;
+  align-items: left;
+}
+
+.profile img {
+  max-width: 14ch;
+  border-radius: 12px;
+  margin-right: 7ch;
+  height: 20ch;
+}
+
+.profile-text {
+  flex: 1;
+}
+
+.publications h2 {
+  border-top: 2px solid #262899;
+  border-bottom: 2px solid #262899;
+  padding-bottom: 6px;
+  margin-bottom: 20px;
+}
+
+.publications {
+  border-bottom: 2px solid #262899;
+}
+
+.pub-entry {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.label-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 7ch;
+}
+
+.link-column {
+  display: flex;
+  flex-direction: column;
+  align-items: left;
+  margin-left: auto;
+}
+
+.conf-label, .journal-label, .link-label {
+  width: 19ch;
+  height: 3ch;
+  text-align: center;
+  color: #fff;
+  font-weight: bold;
+  border-radius: 8px;
+  font-size: 0.75em;
+  line-height: 1.7;
+  margin-bottom: 5px;
+}
+
+.conf-label {
+  background-color: #262899;
+}
+
+.journal-label {
+  background-color: #225522;
+}
+
+.link-label {
+  background-color: #8a8a8a;
+}
+
+.pub-entry p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pub-entry strong {
+  font-weight: bold;
+}
+
+.authors {
+  font-size: 0.85em;
+  color: #666;
+  margin-top: 4px;
+  max-width: 60ch;
+}
+
+.title {
+  width: 100%;
+}
+
+a {
+  text-decoration: none; /* Removes the underline */
+  color: black; /* Sets the text color to black */
+}
+
