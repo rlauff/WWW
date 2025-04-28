@@ -7,31 +7,8 @@ body {
   color: #333;
 }
 
-nav {
-  background: #003366;
-  padding: 10px 0;
-}
-
-nav ul {
-  list-style: none;
-  display: flex;
-  justify-content: center;
-  margin: 0;
-  padding: 0;
-}
-
-nav ul li {
-  margin: 0 20px;
-}
-
-nav a {
-  color: #fff;
-  text-decoration: none;
-  font-weight: bold;
-}
-
 .container {
-  max-width: 800px;
+  width: 800px;
   margin: 0 auto;
   padding: 30px 20px;
 }
