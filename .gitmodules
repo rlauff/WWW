@@ -1,0 +1,3 @@
+[submodule "subtext"]
+	path = subtext
+	url = https://github.com/rlauff/subtext.git
