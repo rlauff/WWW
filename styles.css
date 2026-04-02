@@ -1,111 +1,183 @@
+/* Globale Variablen für ein einfaches Farbmanagement */
+:root {
+  --primary-color: #262899;
+  --text-main: #333333;
+  --text-muted: #666666;
+  --bg-color: #fbfbfb;
+  --card-bg: #ffffff;
+  
+  /* Label-Farben */
+  --label-conf: #262899;
+  --label-journal: #225522;
+  --label-link: #6b7280; /* Modernes Grau */
+  --label-lang: #d97706; /* Neues, modernes Bernstein/Orange für Programmiersprachen */
+}
+
 body {
-  font-family: Arial, sans-serif;
+  /* Eine moderne Standardschriftart, die auf jedem Gerät gut aussieht */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
   line-height: 1.6;
-  background: #ffffff;
-  color: #333;
+  background: var(--bg-color);
+  color: var(--text-main);
 }
 
 .container {
-  width: 800px;
+  /* max-width macht die Seite auf dem Handy responsiv */
+  max-width: 800px; 
+  width: 90%;
   margin: 0 auto;
-  padding: 30px 20px;
+  padding: 40px 0;
 }
 
+/* --- Profil Bereich --- */
 .profile {
   display: flex;
-  align-items: left;
+  align-items: center; /* Zentriert Bild und Text vertikal */
+  gap: 30px; /* Modernere Methode für Abstände als margin */
+  margin-bottom: 50px;
 }
 
 .profile img {
-  max-width: 14ch;
-  border-radius: 12px;
-  margin-right: 7ch;
-  height: 20ch;
+  width: 140px;
+  height: 140px;
+  object-fit: cover; /* Verhindert, dass dein Bild gestaucht wird */
+  border-radius: 16px; /* Etwas weichere Ecken */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Sanfter, moderner Schatten */
 }
 
-.profile-text {
-  flex: 1;
+.profile-text h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: var(--primary-color);
+  font-size: 2.2em;
 }
 
-.publications h2 {
-  border-top: 2px solid #262899;
-  border-bottom: 2px solid #262899;
-  padding-bottom: 6px;
-  margin-bottom: 20px;
+/* --- Publikationen & Projekte --- */
+section {
+  margin-bottom: 40px;
 }
 
-.publications {
-  border-bottom: 2px solid #262899;
+.section-title {
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 8px;
+  margin-bottom: 24px;
+  color: var(--primary-color);
 }
 
 .pub-entry {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 15px;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); /* Karteikarten-Look */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Leichter Hover-Effekt für Modernität */
+.pub-entry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* --- Spalten Layout --- */
 .label-column {
+  flex: 0 0 110px; /* Feste Breite für die linke Spalte */
   display: flex;
   flex-direction: column;
-  align-items: center;
-  margin-right: 7ch;
+  gap: 8px;
+}
+
+.pub-info {
+  flex: 1; /* Nimmt den restlichen Platz in der Mitte ein */
 }
 
 .link-column {
+  flex: 0 0 110px; /* Feste Breite für die rechte Spalte */
   display: flex;
-  flex-direction: column;
-  align-items: left;
-  margin-left: auto;
+  flex-direction: column; /* Stapelt die Boxen auf dem Desktop übereinander */
+  align-items: flex-end; /* Richtet sie auf dem Desktop rechtsbündig aus */
+  gap: 8px;
 }
 
-.conf-label, .journal-label, .link-label {
-  width: 19ch;
-  height: 3ch;
+/* --- Labels (Basis-Klasse für alle bunten Boxen) --- */
+.label {
+  display: inline-block;
+  width: 100px;
   text-align: center;
   color: #fff;
-  font-weight: bold;
-  border-radius: 8px;
-  font-size: 0.75em;
-  line-height: 1.7;
-  margin-bottom: 5px;
+  font-weight: 600;
+  border-radius: 6px;
+  font-size: 0.8em;
+  padding: 6px 0;
+  box-sizing: border-box;
+  text-decoration: none;
 }
 
-.conf-label {
-  background-color: #262899;
+/* Spezifische Label-Farben */
+.conf-label { background-color: var(--label-conf); }
+.journal-label { background-color: var(--label-journal); }
+.language-label { background-color: var(--label-lang); }
+.link-label { background-color: var(--label-link); }
+
+/* Verhindert, dass Hover-Effekte auf Links das Design zerstören */
+.label:hover {
+  opacity: 0.9;
 }
 
-.journal-label {
-  background-color: #225522;
+/* Links innerhalb von Labels sollen immer weiß sein (normale Links im Text bleiben Standard) */
+.label a {
+  color: #fff;
+  text-decoration: none;
 }
 
-.link-label {
-  background-color: #8a8a8a;
-}
-
-.pub-entry p {
+/* --- Typografie innerhalb der Einträge --- */
+.pub-info p {
   margin: 0;
   line-height: 1.4;
 }
 
-.pub-entry strong {
-  font-weight: bold;
+.pub-info strong {
+  font-weight: 600;
+  color: #111;
+  font-size: 1.05em;
 }
 
 .authors {
-  font-size: 0.85em;
-  color: #666;
-  margin-top: 4px;
-  max-width: 60ch;
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin-top: 6px !important;
 }
 
-.title {
-  width: 100%;
-}
+/* --- Mobile Responsiveness (Anpassung für kleine Bildschirme) --- */
+@media (max-width: 650px) {
+  .profile {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .pub-entry {
+    flex-direction: column; /* Stellt Label, Text und Links untereinander */
+    gap: 12px;
+  }
 
-a {
-  text-decoration: none; /* Removes the underline */
-  color: white; /* Sets the text color to black */
-}
+  .label-column, .link-column {
+    flex: auto;
+    width: 100%;
+    align-items: flex-start; /* Alles linksbündig auf dem Handy */
+  }
 
+  .link-column {
+    flex-direction: row; /* WICHTIG: Setzt die Links auf dem Handy nebeneinander! */
+    flex-wrap: wrap;
+  }
+
+  .label {
+    width: auto; /* Die Buttons passen sich der Textlänge an */
+    padding: 6px 12px;
+  }
+}
