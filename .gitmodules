@@ -4,3 +4,6 @@
 [submodule "subtext"]
 	path = subtext
 	url = https://github.com/rlauff/subtext.git
+[submodule "quiver_mutations"]
+	path = quiver_mutations
+	url = https://github.com/rlauff/quiver_mutations.git
