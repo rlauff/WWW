@@ -1,6 +1,6 @@
-[submodule "subtext"]
-	path = subtext
-	url = https://github.com/rlauff/subtext.git
 [submodule "rhombic_strips"]
 	path = rhombic_strips
 	url = https://github.com/rlauff/rhombic_strips.git
+[submodule "subtext"]
+	path = subtext
+	url = https://github.com/rlauff/subtext.git
