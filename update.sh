@@ -14,3 +14,11 @@ echo "Recompiling WASM binaries..."
 ./build_wasms.sh
 
 echo "Update and build complete!"
+
+echo "Delete target directories in submodules"
+cd subtext/
+rm -rf target
+cd ../quiver_mutations/ 
+rm -rf target
+cd ../rhombic_strips/
+rm -rf target
