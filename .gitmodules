@@ -1,9 +1,0 @@
-[submodule "rhombic_strips"]
-	path = rhombic_strips
-	url = https://github.com/rlauff/rhombic_strips.git
-[submodule "subtext"]
-	path = subtext
-	url = https://github.com/rlauff/subtext.git
-[submodule "quiver_mutations"]
-	path = quiver_mutations
-	url = https://github.com/rlauff/quiver_mutations.git
