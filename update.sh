@@ -49,10 +49,10 @@ build_and_extract() {
   TARGET_DIR="$LIVE_DIR/$repo_name"
   echo "Extracting web files to $TARGET_DIR..."
   
-  # Find and copy ONLY .html, .js, .css, and .wasm files.
+  # Find and copy ONLY .html, .js, .css, .wasm, and .stx files.
   # We use -prune to completely ignore the .git and target directories to save time.
   find . -type d \( -name ".git" -o -name "target" \) -prune -o \
-         -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" -o -name "*.wasm" \) -print0 | 
+         -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" -o -name "*.wasm" -o -name "*.stx" \) -print0 | 
   while IFS= read -r -d '' file; do
     # Remove the leading './' from the found file path
     clean_path="${file#./}"
