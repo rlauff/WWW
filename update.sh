@@ -1,6 +1,25 @@
 #!/bin/bash
 set -euo pipefail
 
+# Never hang on a credential prompt: a private/missing repo should fail loudly
+export GIT_TERMINAL_PROMPT=0
+
+# --------------------------------------------------------------------------
+# Usage:
+#   ./update.sh              full deploy (pull site, rebuild WASM, publish all)
+#   ./update.sh --quick      skip the WASM projects, publish dead_or_alive only
+#                            (aliases: -q, --only-dead-or-alive, --no-wasm)
+# --------------------------------------------------------------------------
+WASM=1
+for arg in "$@"; do
+  case "$arg" in
+    -q|--quick|--no-wasm|--only-dead-or-alive) WASM=0 ;;
+    -h|--help) sed -n '/^# Usage:/,/^# ---/p' "$0"; exit 0 ;;
+    *) echo "unknown option: $arg (try --help)" >&2; exit 1 ;;
+  esac
+done
+[ "$WASM" -eq 1 ] || echo "Quick mode: skipping the WASM projects."
+
 # 1. Update the main website
 echo "Pulling latest changes for the main website..."
 git pull origin main
@@ -8,21 +27,25 @@ git pull origin main
 # Define the live website directory as the current directory (WWW root)
 LIVE_DIR="$PWD"
 
-echo "Checking dependencies..."
-command -v wasm-pack >/dev/null 2>&1 || {
-  echo "wasm-pack not found. Install it with: cargo install wasm-pack" >&2
-  exit 1
-}
-rustup target list --installed 2>/dev/null | grep -q wasm32-unknown-unknown || {
-  echo "Adding wasm32 target..."; rustup target add wasm32-unknown-unknown
-}
+if [ "$WASM" -eq 1 ]; then
+  echo "Checking dependencies..."
+  command -v wasm-pack >/dev/null 2>&1 || {
+    echo "wasm-pack not found. Install it with: cargo install wasm-pack" >&2
+    exit 1
+  }
+  rustup target list --installed 2>/dev/null | grep -q wasm32-unknown-unknown || {
+    echo "Adding wasm32 target..."; rustup target add wasm32-unknown-unknown
+  }
+fi
 
 # 2. Delete the old deployments
 #    dead_or_alive is deliberately NOT deleted: reviewers move problems
 #    between its candidates/ and accepted/ folders on the live server, and a
 #    wipe would throw those decisions away. It is copied over in place below.
-echo "Removing old deployed tools..."
-rm -rf "$LIVE_DIR/rhombic_strips" "$LIVE_DIR/subtext" "$LIVE_DIR/quiver_mutations"
+if [ "$WASM" -eq 1 ]; then
+  echo "Removing old deployed tools..."
+  rm -rf "$LIVE_DIR/rhombic_strips" "$LIVE_DIR/subtext" "$LIVE_DIR/quiver_mutations"
+fi
 
 # 3. Create a secure, temporary build environment
 BUILD_DIR=$(mktemp -d)
@@ -98,11 +121,13 @@ deploy_static() {
 }
 
 # 5. Execute the Builds
-build_and_extract "https://github.com/rlauff/rhombic_strips.git" "rhombic_strips" "www/pkg"
-build_and_extract "https://github.com/rlauff/subtext.git" "subtext" "pkg"
-build_and_extract "https://github.com/rlauff/quiver_mutations.git" "quiver_mutations" "pkg"
+if [ "$WASM" -eq 1 ]; then
+  build_and_extract "https://github.com/rlauff/rhombic_strips.git" "rhombic_strips" "www/pkg"
+  build_and_extract "https://github.com/rlauff/subtext.git" "subtext" "pkg"
+  build_and_extract "https://github.com/rlauff/quiver_mutations.git" "quiver_mutations" "pkg"
+fi
 
-deploy_static "https://github.com/rlauff/dead-or-alive.git"dead_or_alive" "web"
+deploy_static "https://github.com/rlauff/dead-or-alive.git" "dead-or-alive" "web"
 
 echo "Deploy complete! The temporary workspace will now be destroyed."
 
