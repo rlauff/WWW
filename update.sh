@@ -39,7 +39,7 @@ if [ "$WASM" -eq 1 ]; then
 fi
 
 # 2. Delete the old deployments
-#    dead_or_alive is deliberately NOT deleted: reviewers move problems
+#    dead-or-alive is deliberately NOT deleted: reviewers move problems
 #    between its candidates/ and accepted/ folders on the live server, and a
 #    wipe would throw those decisions away. It is copied over in place below.
 if [ "$WASM" -eq 1 ]; then
@@ -94,27 +94,29 @@ build_and_extract() {
   cd "$BUILD_DIR"
 }
 
-# 4b. Static projects: nothing to compile, just publish a subfolder as-is.
+# 4b. Static projects: nothing to compile, just publish the repo as-is.
 #     cp -r (not the filtered find above) so the .json problem data and
-#     manifest come along too. Existing files are overwritten, extra files on
-#     the server are left alone -- that is what preserves review decisions.
+#     manifests come along too. The repo's own layout is published verbatim
+#     -- no directories are created, moved or removed here. Existing files
+#     are overwritten, extra files on the server are left alone: that is
+#     what preserves the review decisions made on the live server.
 deploy_static() {
   local repo_url=$1
   local repo_name=$2
-  local src_subdir=$3
 
   echo "==> Processing $repo_name (static, no build)..."
   git clone --depth 1 "$repo_url" "$repo_name"
 
   local target="$LIVE_DIR/$repo_name"
   mkdir -p "$target"
-  cp -r "$BUILD_DIR/$repo_name/$src_subdir/." "$target/"
-  chmod 755 "$target/review.cgi" 2>/dev/null || true
-  mkdir -p "$target/candidates" "$target/accepted" "$target/rejected" \
-           "$target/problems"
+  # publish the working tree, minus git's own bookkeeping
+  rm -rf "$BUILD_DIR/$repo_name/.git"
+  cp -r "$BUILD_DIR/$repo_name/." "$target/"
+  find "$target" -name '*.cgi' -exec chmod 755 {} +
 
-  if [ ! -f "$target/manifest.json" ] && [ ! -f "$target/problems.json" ]; then
-    echo "  WARNING: no manifest.json published for $repo_name --" \
+  if [ ! -f "$target/web/manifest.json" ] && \
+     [ ! -f "$target/web/problems.json" ]; then
+    echo "  WARNING: no manifest published for $repo_name --" \
          "the page will load but show no problems." >&2
   fi
   cd "$BUILD_DIR"
@@ -127,7 +129,7 @@ if [ "$WASM" -eq 1 ]; then
   build_and_extract "https://github.com/rlauff/quiver_mutations.git" "quiver_mutations" "pkg"
 fi
 
-deploy_static "https://github.com/rlauff/dead-or-alive.git" "dead-or-alive" "web"
+deploy_static "https://github.com/rlauff/dead-or-alive.git" "dead-or-alive"
 
 echo "Deploy complete! The temporary workspace will now be destroyed."
 
