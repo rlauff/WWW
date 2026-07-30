@@ -110,68 +110,9 @@ deploy_static() {
   local target="$LIVE_DIR/$repo_name"
   mkdir -p "$target"
 
-  # The live server cannot list a directory, so the manifests ARE the index:
-  # they are review state, not build output. Snapshot them before the copy so
-  # the committed versions cannot roll back decisions made on the server.
-  local live
-  live=$(mktemp -d)
-  local manifests="manifest.json manifest-candidates.json manifest-rejected.json"
-  for m in $manifests; do
-    if [ -f "$target/web/$m" ]; then
-      cp -p "$target/web/$m" "$live/$m"
-    fi
-  done
-
   # publish the working tree, minus git's own bookkeeping
   rm -rf "$BUILD_DIR/$repo_name/.git"
   cp -r "$BUILD_DIR/$repo_name/." "$target/"
-
-  # Merge the snapshot with what was just published: keep every decision the
-  # server has recorded, pick up candidates newly committed to the repo, and
-  # never re-queue something already accepted or rejected.
-  if [ -d "$target/web" ]; then
-    python3 - "$live" "$target/web" <<'PY'
-import json, os, sys
-live, web = sys.argv[1], sys.argv[2]
-MF = {"accepted": "manifest.json", "candidates": "manifest-candidates.json",
-      "rejected": "manifest-rejected.json"}
-
-def read(path):
-    try:
-        with open(path) as fh:
-            d = json.load(fh)
-    except (OSError, ValueError):
-        return set()
-    if isinstance(d, dict):
-        d = d.get("problems", [])
-    return {str(n) for n in d} if isinstance(d, list) else set()
-
-def write(path, names):
-    names = sorted(names)
-    body = json.dumps({"problems": names, "count": len(names)}, indent=1)
-    tmp = path + ".tmp"
-    with open(tmp, "w") as fh:
-        fh.write(body)
-    os.replace(tmp, path)
-
-was = {k: read(os.path.join(live, v)) for k, v in MF.items()}
-now = {k: read(os.path.join(web, v)) for k, v in MF.items()}
-merged = {
-    "accepted": was["accepted"] | now["accepted"],
-    "rejected": was["rejected"] | now["rejected"],
-}
-merged["candidates"] = ((was["candidates"] | now["candidates"])
-                        - merged["accepted"] - merged["rejected"])
-for key, names in merged.items():
-    path = os.path.join(web, MF[key])
-    if not names and not os.path.exists(path):
-        continue                      # do not invent an empty manifest
-    write(path, names)
-    print(f"  {MF[key]}: {len(names)} problems"
-          + (f" (+{len(names - was[key])} new)" if was[key] else ""))
-PY
-  fi
-  rm -rf "$live"
 
   # Permissions for a restricted server: every problem is fetched by name out
   # of a manifest, never by listing a directory, so each directory needs the
@@ -180,14 +121,31 @@ PY
   chmod a+x "$target"
   chmod -R a+rX "$target/web"
   find "$target/web" -name '*.cgi' -exec chmod a+rx {} +
-  for d in candidates accepted rejected problems; do
+  for d in candidates accepted rejected; do
     if [ -d "$target/$d" ]; then
       chmod a+x "$target/$d"                                  # enterable ...
       find "$target/$d" -type f -exec chmod a+r {} +          # ... files readable
     fi
   done
-  if [ -f "$target/review-log.jsonl" ]; then
-    chmod a+r "$target/review-log.jsonl"
+  # review.cgi records decisions in this log and cannot do anything else: it
+  # has no write access to the pool directories. It runs as the web server's
+  # user, so the log has to be writable by someone other than the owner.
+  # Set LOG_MODE= if your host lets you use a shared group instead.
+  local log="$target/review-log.jsonl"
+  [ -e "$log" ] || : > "$log"
+  chmod "${LOG_MODE:-666}" "$log"
+
+  # Carry out the decisions recorded since the last deploy, then reindex from
+  # what is actually on disk. This is what makes the manifests right after a
+  # deploy: they are rebuilt from the directories rather than taken from the
+  # commit, so a stale committed manifest cannot roll back a decision, and
+  # candidates newly committed to the repo are picked up automatically.
+  if [ -f "$target/rebuild_manifests.py" ]; then
+    python3 "$target/rebuild_manifests.py" --root "$target" ||
+      echo "  WARNING: rebuild_manifests.py reported problems (above)." >&2
+  else
+    echo "  WARNING: $target/rebuild_manifests.py is missing -- the manifests" \
+         "are whatever the commit contained, which may be stale." >&2
   fi
 
   if [ ! -f "$target/web/manifest.json" ] && \
