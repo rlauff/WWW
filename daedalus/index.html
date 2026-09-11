@@ -1,0 +1,2491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daedalus</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%230e1013'/><rect x='3' y='3' width='4' height='4' rx='1' fill='%234c9aff'/><rect x='9' y='9' width='4' height='4' rx='1' fill='%23ff7a59'/></svg>">
+<style>
+  :root {
+    --bg: #0e1013; --panel: #16191e; --line: #23282f; --ink: #e6e9ee; --dim: #7d8794;
+    --cell: #1c2027; --cell-hi: #2b3646; --wall: #c8973f; --wall-ghost: #c8973f55;
+    --p1: #4c9aff; --p2: #ff7a59; --good: #5ac489; --accent: #4c9aff;
+    /* The eval bar covers the whole height of the board, so it uses deeper
+       versions of the two player colours: the saturated ones shout at that size. */
+    --eval1: #2f6db8; --eval2: #a8503a;
+    /* the board decides the width of everything under it */
+    /* Three limits, whichever bites first.
+         62vh   leaves room under it for Analysis and Puzzles, the second row
+         760px  stops it becoming silly on a large monitor
+         100vw - 620px  keeps the two columns beside it above their minimum
+       The last one is what a laptop needs: at 1366px wide the old fixed board
+       demanded 814px and the columns 530px more, which is 1344 before any
+       padding -- so the grid overflowed and the panels ran into each other. */
+    --board: min(56vh, 760px, calc(100vw - 620px));
+    /* The board plus the turn line and the buttons under it. The top grid row
+       is pinned to exactly this, which is what makes the panels beside the
+       board end where the board ends instead of stretching the row to fit
+       whatever is in them. */
+    --toprow: calc(var(--board) + 96px);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Board and eval bar top left, the two players underneath them, everything
+     to do with a whole game down the right hand side. */
+  html, body { max-width: 100%; overflow-x: hidden; }
+  .app {
+    display: grid; gap: 18px; padding: 18px; align-items: start; justify-content: start;
+    /* One screen, and nothing on it scrolls the page. The top row is exactly as
+       tall as the board, so the panels beside it end where it ends; the row
+       under gets whatever is left. Every panel that can overflow scrolls inside
+       itself instead, which is why each carries `min-height: 0` -- without it a
+       grid item refuses to shrink below its content and pushes the page long
+       again. */
+    height: 100vh; overflow: hidden;
+    grid-template-columns:
+      calc(var(--board) + 54px) minmax(300px, 1fr) minmax(180px, 250px);
+    grid-template-rows: var(--toprow) minmax(0, 1fr);
+    grid-template-areas: "board side moves" "under puzzles puzzles";
+  }
+  .board-area { grid-area: board; min-width: 0; }
+  .under      { grid-area: under;   min-width: 0; min-height: 0; overflow-y: auto;
+                margin-top: 14px; }
+  .side       { grid-area: side;    min-width: 0; min-height: 0; overflow-y: auto;
+                display: flex; flex-direction: column; gap: 14px; }
+  /* The card takes the whole column from the start rather than shrinking to
+     whatever moves happen to exist, so the panel does not change size under
+     the reader as a game is played. The list inside it is what scrolls. */
+  .movescol   { grid-area: moves;   min-width: 0; min-height: 0;
+                display: flex; flex-direction: column; gap: 14px; }
+  .movescol > .card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .movescol > .card > .moves { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .puzzlearea { grid-area: puzzles; min-width: 0; min-height: 0; overflow-y: auto;
+                margin-top: 14px; }
+  /* Narrow: the far right column has nowhere to go, so it joins the middle one. */
+  @media (max-width: 1250px) {
+    .app { grid-template-columns: calc(var(--board) + 54px) minmax(300px, 1fr);
+           grid-template-areas: "board side" "under puzzles"; }
+    .movescol { display: none; }
+  }
+  /* Phone: one column, the page scrolls, nothing is boxed. */
+  @media (max-width: 1080px) {
+    .app { height: auto; overflow: visible; grid-template-columns: minmax(0, 1fr);
+           grid-template-rows: none;
+           grid-template-areas: "board" "side" "moves" "under" "puzzles"; }
+    :root { --board: min(92vw, 560px); }
+    .side, .movescol, .under, .puzzlearea { overflow: visible; max-height: none; }
+    .movescol { display: flex; }
+    .moves { max-height: 50vh; }
+    /* Nothing may push the page sideways on a phone. The player header is
+       nowrap on a desktop so "Player 2" cannot break in half; here there is no
+       room for that, so it wraps and the weights chip gives up its line. */
+    .slot h3 { flex-wrap: wrap; }
+    .slot h3 .chip.brain { margin-left: 0; max-width: 100%; }
+    .row { flex-wrap: wrap; }
+    .card, .slot { min-width: 0; }
+  }
+
+  .board-row { display: flex; gap: 12px; align-items: stretch; }
+  svg#board { display: block; width: var(--board); max-width: 100%; height: auto; touch-action: manipulation; }
+
+  /* The eval bar. Player 1 fills from the bottom because that is the end of
+     the board player 1 starts on, and the number sits at the leading end. */
+  .eval {
+    position: relative; flex: 0 0 42px; width: 42px; border-radius: 8px;
+    overflow: hidden; background: var(--eval2); border: 1px solid var(--line);
+  }
+  .eval > i.fill {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 50%;
+    background: var(--eval1); transition: height .3s ease;
+  }
+  .eval > i.mid { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #ffffff40; }
+  .eval > b {
+    position: absolute; left: 0; right: 0; text-align: center; font-size: 10.5px;
+    font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+    color: #f2f6ff; text-shadow: 0 1px 2px #00000090; transition: top .3s ease, bottom .3s ease;
+  }
+  .eval > b.low { bottom: 5px; top: auto; }
+  .eval > b.high { top: 5px; bottom: auto; }
+  .eval.idle { background: #2a2f38; }
+  .eval.idle > i.fill { background: #333a45; }
+  .eval.stale { opacity: .72; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card h2 {
+    margin: 0 0 12px; font-size: 11px; font-weight: 600; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 10px;
+  }
+  .card h2 .right { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .row { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+  .row:last-child { margin-bottom: 0; }
+  .row label { flex: 0 0 72px; color: var(--dim); }
+  .grow { flex: 1 1 auto; min-width: 0; }
+
+  input, select, button {
+    font: inherit; color: var(--ink); background: #1b1f26;
+    border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input[type=number] { width: 78px; }
+  button { cursor: pointer; background: #1f242c; transition: background .12s, border-color .12s; }
+  button:hover:not(:disabled) { background: #272d37; border-color: #39414d; }
+  button:disabled { opacity: .4; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #06121f; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #66aaff; }
+  .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .unit { color: var(--dim); font-size: 12px; }
+  a { color: var(--accent); }
+
+  /* the analysis slider */
+  .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+  .switch input { display: none; }
+  .track {
+    width: 40px; height: 22px; border-radius: 12px; background: #2a3038;
+    position: relative; transition: background .18s; flex: 0 0 auto;
+  }
+  .track::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+    border-radius: 50%; background: #8a93a0; transition: transform .18s, background .18s;
+  }
+  .switch input:checked + .track { background: #21405f; }
+  .switch input:checked + .track::after { transform: translateX(18px); background: var(--accent); }
+
+  /* the two players, stacked at the top of the column beside the board */
+  .engines { min-width: 0; }
+  .engine-cards { display: grid; gap: 14px; align-items: start; grid-template-columns: 1fr; }
+  .slot { border-left: 3px solid transparent; padding-left: 11px; }
+  .slot.p1 { border-color: var(--p1); }
+  .slot.p2 { border-color: var(--p2); }
+  .slot.active { background: #1a1f28; border-radius: 0 6px 6px 0; }
+  .slot h3 { margin: 0 0 9px; font-size: 12.5px; font-weight: 600; display: flex; gap: 8px;
+             align-items: center; flex-wrap: nowrap; min-width: 0; }
+  .slot h3 .pname { white-space: nowrap; flex: 0 0 auto; }
+  .chip { font-size: 10.5px; color: var(--dim); border: 1px solid var(--line); border-radius: 20px; padding: 1px 8px; }
+  .walls { display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px;
+           color: var(--dim); flex: 0 0 auto; white-space: nowrap; }
+  .walls b { font-size: 17px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .walls .pips { display: inline-flex; gap: 2px; }
+  .walls .pip { width: 4px; height: 13px; border-radius: 1px; background: var(--line); }
+  .slot.p1 .walls b { color: var(--p1); }
+  .slot.p2 .walls b { color: var(--p2); }
+  .slot.p1 .walls .pip.on { background: var(--p1); }
+  .slot.p2 .walls .pip.on { background: var(--p2); }
+  .walls.none b { color: var(--dim); }
+
+  /* Player one's chance over the whole game, drawn from the full analysis. */
+  /* The harvest keeps appending, so this is bounded the way the move list is:
+     eighty puzzles listed in full would be two thousand pixels of page. */
+  #puz-listwrap { max-height: min(38vh, 380px); overflow-y: auto; margin-top: 8px; }
+
+  .wingraph { margin-top: 12px; }
+  .wingraph svg { display: block; width: 100%; height: 132px; cursor: pointer; }
+  .wingraph .gtitle { display: flex; gap: 8px; align-items: baseline;
+                      font-size: 11px; color: var(--dim); margin-bottom: 6px; }
+  .wingraph .gtitle b { font-size: 12px; color: var(--ink); font-weight: 600; }
+  .chip.live { color: var(--good); border-color: #2d4a3b; }
+  /* what an engine is really thinking with, which is not the same as what the
+     select next to it asks for until the load has actually gone through */
+  .chip.brain { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+               white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+  .chip.brain.net { color: var(--good); border-color: #2d4a3b; }
+  .chip.brain.bad { color: #ff7a59; border-color: #5a2f24; }
+
+  details.more { margin: 8px 0 0; }
+  details.more > summary {
+    cursor: pointer; color: var(--dim); font-size: 11.5px; list-style: none;
+    padding: 3px 0; user-select: none;
+  }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before { content: "\25B8 "; }
+  details.more[open] > summary::before { content: "\25BE "; }
+  details.more > summary:hover { color: var(--ink); }
+  details.more > div { padding-top: 6px; }
+
+  .note { margin: 12px 0 0; color: var(--dim); font-size: 11.5px; line-height: 1.55; }
+
+  /* The answer to "was I right" is the whole point of the puzzle panel, so it
+     is a banner rather than a line of prose. Hidden until a move is tried. */
+  .verdict { display: none; margin: 12px 0 0; padding: 14px 16px; border-radius: 10px;
+             border: 1px solid; font-size: 17px; font-weight: 700; line-height: 1.35; }
+  .verdict.on { display: block; }
+  .verdict .mark { font-size: 21px; margin-right: 9px; vertical-align: -1px; }
+  .verdict .sub { display: block; margin-top: 7px; font-size: 12.5px;
+                  font-weight: 500; opacity: .85; }
+  .verdict.right { background: #10301e; border-color: var(--good); color: var(--good); }
+  .verdict.wrong { background: #331a17; border-color: #e5604a; color: #ff9683; }
+  .verdict.told  { background: var(--cell); border-color: var(--line); color: var(--ink); }
+  /* While a puzzle is open the card moves under the board, where the eye
+     already is. It is the same node, so nothing about it is rebuilt. */
+  .board-area > #puz-card { margin-top: 14px; }
+  .note b { color: #a8b2c0; font-weight: 600; }
+
+  /* who is on the clock, said once in words rather than left to a highlight */
+  .turn { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+  .turn .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; background: var(--dim); }
+  .turn .who { color: var(--dim); }
+  .turn .who b { color: var(--ink); font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .turn.working .who b { color: var(--good); }
+  .turn.bad .who b { color: #ff7a59; }
+  .controls { margin-top: 14px; max-width: var(--board); }
+
+  .head-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .head-row:last-child { margin-bottom: 0; }
+  .head-row > i.sw { flex: 0 0 9px; height: 9px; border-radius: 2px; background: var(--dim); }
+  .head-row > span { flex: 0 0 104px; color: var(--dim); font-size: 12px; }
+  .head-row > em { flex: 0 0 30px; text-align: right; font-style: normal; color: var(--dim);
+                   font-variant-numeric: tabular-nums; font-size: 11.5px; }
+  .head-row input[type=range] { flex: 1 1 auto; min-width: 0; }
+  .head-row.on > span { color: var(--ink); }
+  .head-row.off { opacity: .45; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 14px; color: var(--dim); }
+  .stats b { color: var(--ink); font-weight: 600; float: right; font-variant-numeric: tabular-nums; }
+
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { text-align: right; font-weight: 500; color: var(--dim); font-size: 11px; padding: 3px 0; }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 3px 0; border-top: 1px solid var(--line); text-align: right; }
+  tr.pick td { color: var(--good); }
+  td.mv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; }
+  td.mv:hover { color: var(--accent); }
+
+  .status { color: var(--dim); min-height: 18px; }
+  .status.err { color: #ff7a59; }
+
+  /* the move list of the game on the board */
+  /* In a column of its own nothing sits under it, so it can be as tall as the
+     board beside it without shoving anything down the page. */
+  /* The column scrolls, so this does not need its own bound as well. */
+  .moves { margin: 0 -4px; }
+  .mrow { display: flex; align-items: stretch; gap: 4px; }
+  .mrow > .num { flex: 0 0 26px; color: var(--dim); font-size: 11.5px; text-align: right;
+                 padding: 3px 0; font-variant-numeric: tabular-nums; }
+  /* A flex row, not a float. The annotation used to be floated right, which
+     takes it out of the flow entirely: in a narrow column it simply sat on top
+     of the move it belonged to. As flex items they push each other instead, and
+     the move name is the one that gives. */
+  .mvb {
+    flex: 1 1 0; min-width: 0; display: flex; align-items: baseline; gap: 4px;
+    text-align: left; background: none; border: 1px solid transparent;
+    border-radius: 5px; padding: 3px 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; color: var(--ink); overflow: hidden;
+  }
+  .mvb > span.mv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mvb:hover:not(:disabled) { background: #232935; border-color: transparent; }
+  .mvb.on { background: #2b3646; border-color: #3d4a5e; }
+  .mvb.empty { visibility: hidden; }
+  .mvb.start { flex: 1 1 auto; color: var(--dim); font-family: inherit; }
+  .mvb > i { font-style: normal; margin-left: auto; flex: 0 0 auto; color: var(--dim);
+             font-size: 10.5px; }
+  .moves-nav { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+  .moves-nav .unit { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .legend { display: flex; align-items: center; gap: 10px; margin-top: 10px; color: var(--dim); font-size: 11px; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .scale { flex: 1 1 auto; height: 6px; border-radius: 3px; min-width: 60px;
+           background: linear-gradient(90deg, hsl(140,68%,62%), hsl(70,68%,59%), hsl(0,68%,56%)); }
+
+  .prog { height: 6px; background: #22272f; border-radius: 4px; overflow: hidden; margin: 10px 0 8px; }
+  .prog > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .sum { color: var(--dim); font-size: 11.5px; line-height: 1.6; }
+  .sum b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sum .p1 { color: var(--p1); } .sum .p2 { color: var(--p2); }
+
+  /* only the cells and the wall slots take clicks, everything else is paint */
+  .deco { pointer-events: none; }
+  .cell { fill: var(--cell); transition: fill .1s; }
+  .cell.target { fill: var(--cell-hi); cursor: pointer; }
+  .cell.target:hover { fill: #38455a; }
+  .hit { fill: transparent; cursor: pointer; }
+  .hit:hover { fill: var(--wall-ghost); }
+  /* while an engine is working the board only looks inert, the handlers stay put */
+  svg.thinking .cell.target { fill: var(--cell); cursor: progress; }
+  svg.thinking .cell.target:hover { fill: var(--cell); }
+  svg.thinking .hit { cursor: progress; }
+  svg.thinking .hit:hover { fill: transparent; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="board-area">
+    <div class="board-row">
+      <div class="eval idle" id="eval" title="How the search rates the position on the board, for player 1 at the bottom">
+        <i class="fill" id="evalfill"></i><i class="mid"></i><b id="evalnum" class="low">&mdash;</b>
+      </div>
+      <svg id="board" viewBox="0 0 584 584"></svg>
+    </div>
+    <div class="controls">
+      <div class="turn" id="turnline"><i class="dot"></i><span class="who">&mdash;</span></div>
+      <div class="buttons">
+        <button class="primary" id="btn-play">AI move</button>
+        <button id="btn-auto">Auto-play</button>
+        <button id="btn-undo" title="At the end of the game this takes the last move back; anywhere else it is one step back through it">Undo</button>
+        <button id="btn-new">New game</button>
+      </div>
+      <div class="status" id="status" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div class="side">
+
+  <div class="engines">
+    <div class="engine-cards">
+
+    <div class="card">
+      <div class="slot p1" id="slot1">
+        <h3><span style="color:var(--p1)">&#9679;</span> <span class="pname">Player 1</span> <span class="walls" id="chip1"></span>
+          <span class="chip brain" id="who1" title="what this player's engine is really thinking with">&mdash;</span></h3>
+        <div class="row">
+          <label>Control</label>
+          <select id="kind1" class="grow"><option value="human">Human</option><option value="ai">AI</option></select>
+          <select id="preset1"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="custom">Custom</option></select>
+        </div>
+        <div class="row ai1"><label>Brain</label>
+            <select id="brain1"><option value="net">Network</option><option value="heuristic">Heuristic</option></select>
+          <input id="wts1" class="grow" placeholder="newest in weights/"></div>
+        <div class="row ai1"><label>Time</label><input id="time1" type="number" min="10" step="50" value="1000"><span class="unit">ms</span>
+          <label style="flex:0 0 auto;margin-left:4px">Sims</label><input id="sims1" type="number" min="0" step="500" value="0"></div>
+        <details class="more ai1"><summary>Search</summary><div>
+          <div class="row"><label>Threads</label><input id="thr1" type="number" min="1" max="64" value="2">
+            <label style="flex:0 0 auto;margin-left:4px" title="The exploration constant c of the PUCT rule inside the search tree. It is not the self play temperature: at zero the search would follow its first guess and never look anywhere else.">PUCT c</label>
+            <input id="expl1" type="number" min="0.25" max="10" step="0.25" value="2"></div>
+          <div class="row"><label>Arena</label><select id="arena1" class="grow"></select></div>
+        </div></details>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="slot p2" id="slot2">
+        <h3><span style="color:var(--p2)">&#9679;</span> <span class="pname">Player 2</span> <span class="walls" id="chip2"></span>
+          <span class="chip brain" id="who2" title="what this player's engine is really thinking with">&mdash;</span></h3>
+        <div class="row">
+          <label>Control</label>
+          <select id="kind2" class="grow"><option value="human">Human</option><option value="ai" selected>AI</option></select>
+          <select id="preset2"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="custom">Custom</option></select>
+        </div>
+        <div class="row ai2"><label>Brain</label>
+          <select id="brain2"><option value="net">Network</option><option value="heuristic">Heuristic</option></select>
+          <input id="wts2" class="grow" placeholder="newest in weights/"></div>
+        <div class="row ai2"><label>Time</label><input id="time2" type="number" min="10" step="50" value="1000"><span class="unit">ms</span>
+          <label style="flex:0 0 auto;margin-left:4px">Sims</label><input id="sims2" type="number" min="0" step="500" value="0"></div>
+        <details class="more ai2"><summary>Search</summary><div>
+          <div class="row"><label>Threads</label><input id="thr2" type="number" min="1" max="64" value="2">
+            <label style="flex:0 0 auto;margin-left:4px" title="The exploration constant c of the PUCT rule inside the search tree. It is not the self play temperature: at zero the search would follow its first guess and never look anywhere else.">PUCT c</label>
+            <input id="expl2" type="number" min="0.25" max="10" step="0.25" value="2"></div>
+          <div class="row"><label>Arena</label><select id="arena2" class="grow"></select></div>
+        </div></details>
+      </div>
+    </div>
+
+    </div>
+    <p class="note">Every engine started from this page
+      plays greedily: <b>temperature</b>, <b>temperature plies</b> and <b>Dirichlet noise</b> are
+      pinned to zero. <b>PUCT c</b> is a different knob &mdash; the exploration constant of the
+      selection rule inside the tree. <span id="engine-count"></span></p>
+  </div>
+
+    <div class="card">
+      <h2>Load a game <span class="right" id="load-src"></span></h2>
+      <div class="row">
+        <input id="load-input" class="grow" placeholder="barricade.gg link, share code, or moves">
+        <button id="btn-load" style="flex:0 0 auto">Load</button>
+      </div>
+      <div class="buttons" style="margin-top:8px">
+        <button id="btn-train" title="Takes a random game out of the newest self play file under data/ and puts it on the board, replacing the game on it">Self play game</button>
+        <button id="btn-train-again" style="display:none">Another one</button>
+        <button id="btn-copy" title="Copies the game on the board as moves barricade.gg reads">Copy moves</button>
+        <a id="bar-link" href="https://barricade.gg/analysis" target="_blank" rel="noreferrer noopener"
+           style="margin-left:auto;align-self:center;font-size:12px">Open on barricade.gg &#8599;</a>
+      </div>
+      <p class="note">A shared <b>barricade.gg/analysis</b> link carries its own moves, so it
+        loads without an account. Moves can also be pasted straight in, either as
+        <b>e2 e8 e3h</b> or as this engine's own <b>U D H42</b>.</p>
+    </div>
+
+    <div class="card" id="review-card" style="display:none">
+      <h2>Self play record <span class="right" id="train-src"></span></h2>
+      <div class="stats">
+        <div>Result <b id="train-result">&mdash;</b></div>
+        <div>Margin <b id="train-margin">&mdash;</b></div>
+        <div>Played <b id="train-move">&mdash;</b></div>
+        <div>Search value <b id="train-q">&mdash;</b></div>
+      </div>
+      <table id="train-policy" style="margin-top:12px">
+        <thead><tr><th>Self play wanted</th><th>Share of visits</th></tr></thead><tbody></tbody>
+      </table>
+      <p class="note" id="train-note"></p>
+      <div class="buttons" style="margin-top:10px">
+        <button id="btn-train-exit">Close record</button>
+      </div>
+    </div>
+
+  </div>
+
+
+  <div class="under">
+
+    <div class="card">
+        <h2>Analysis <span class="right chip brain" id="chipA" title="what the analysis engine is really thinking with">off</span></h2>
+        <div class="row">
+          <label class="switch"><input type="checkbox" id="analyse"><span class="track"></span> Live</label>
+          <select id="presetA" style="margin-left:auto"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="custom">Custom</option></select>
+        </div>
+        <div class="row"><label>Brain</label>
+          <select id="brainA"><option value="net">Network</option><option value="heurisitc">Heuristic</option></select>
+          <input id="wtsA" class="grow" placeholder="newest in weights/"></div>
+        <div class="row">
+          <label class="switch" style="flex:0 0 auto"><input type="checkbox" id="overlay" checked><span class="track"></span> Overlay</label>
+          <span class="unit" style="margin-left:auto">Top</span>
+          <input id="topn" type="number" min="1" max="24" value="8" style="width:62px">
+        </div>
+        <details class="more"><summary>Search</summary><div>
+          <div class="row"><label>Threads</label><input id="thrA" type="number" min="1" max="64" value="2">
+            <label style="flex:0 0 auto;margin-left:4px" title="The exploration constant c of the PUCT rule inside the search tree. It is not the self play temperature: at zero the search would follow its first guess and never look anywhere else.">PUCT c</label>
+            <input id="explA" type="number" min="0.25" max="10" step="0.25" value="2"></div>
+          <div class="row"><label>Arena</label><select id="arenaA" class="grow"></select></div>
+          <div class="row"><label>Pass</label><input id="sliceA" type="number" min="20" max="2000" step="20" value="120"><span class="unit">ms of search at a time</span></div>
+        </div></details>
+        <details class="more"><summary>Predictions</summary><div>
+          <div id="heads">
+            <div class="head-row" data-head="walk_mover" title="How likely the network thinks each square is to be stood on by the player to move before the game ends">
+              <i class="sw"></i><span>Mover's squares</span>
+              <input id="head-walk_mover" type="range" min="0" max="100" value="0"><em>off</em></div>
+            <div class="head-row" data-head="walk_other" title="The same for the player who is not to move">
+              <i class="sw"></i><span>Rival's squares</span>
+              <input id="head-walk_other" type="range" min="0" max="100" value="0"><em>off</em></div>
+            <div class="head-row" data-head="wall_h" title="Where the network expects a horizontal wall to be standing when the game ends">
+              <i class="sw"></i><span>Walls, flat</span>
+              <input id="head-wall_h" type="range" min="0" max="100" value="0"><em>off</em></div>
+            <div class="head-row" data-head="wall_v" title="Where the network expects a vertical wall to be standing when the game ends">
+              <i class="sw"></i><span>Walls, upright</span>
+              <input id="head-wall_v" type="range" min="0" max="100" value="0"><em>off</em></div>
+          </div>
+          <div class="row" style="margin-top:6px"><label>Margin</label><span id="headNote" class="unit">&mdash;</span></div>
+        </div></details>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="btn-full" style="flex:0 0 auto">Full analysis</button>
+          <button id="btn-full-stop" style="flex:0 0 auto;display:none">Stop</button>
+          <span class="unit" id="full-state" style="margin-left:auto;text-align:right"></span>
+        </div>
+        <div class="prog" id="full-prog" style="display:none"><i id="full-bar"></i></div>
+        <div id="wingraph" class="wingraph" style="display:none"></div>
+        <div class="sum" id="full-summary"></div>
+        <p class="note">The whole game, one pass a position on this same engine and these same
+          settings, and then every move scored by what it lost against the one before it. A pass
+          is <b>Pass</b> milliseconds long, or shorter if the arena fills first.</p>
+      </div>
+
+  </div>
+
+  <div class="movescol">
+
+  <div class="card">
+        <h2>Moves <span class="right" id="moves-count"></span></h2>
+        <div class="moves" id="movelist"></div>
+        <div class="moves-nav">
+          <button id="nav-first" title="back to the opening">&#124;&#9664;</button>
+          <button id="nav-prev" title="one ply back (left arrow)">&#9664;</button>
+          <button id="nav-next" title="one ply on (right arrow)">&#9654;</button>
+          <button id="nav-last" title="to the end of the game">&#9654;&#124;</button>
+          <span class="unit" id="nav-ply">0 / 0</span>
+        </div>
+        <div class="legend" id="legend" style="display:none">
+          <span><i style="background:var(--accent)"></i>engine's move</span>
+          <span class="scale"></span>
+          <span>lost value</span>
+        </div>
+      </div>
+
+  </div>
+
+  <div class="puzzlearea">
+
+  <div class="card" id="puz-card">
+          <h2>Puzzles <span class="right" id="puz-src"></span></h2>
+    
+          <div id="puz-empty" class="note" style="margin-top:8px">
+            Positions where exactly one move wins and every other move loses, that a
+            search with no network in it cannot find. Written by
+            <b>train/puzzles.py</b> as it plays. None found yet.
+            <button id="btn-puz-retry-load" style="margin-left:6px">Check again</button>
+          </div>
+    
+          <div id="puz-index" style="display:none;margin-top:10px">
+            <div class="row" style="gap:6px;flex-wrap:wrap">
+              <button id="btn-puz-load" style="flex:0 0 auto" title="Read the file again: a harvest that is still running keeps adding to it">Refresh</button>
+              <select id="puz-filter" style="flex:0 1 260px">
+                <option value="">every difficulty</option>
+                <option value="medium">medium &mdash; titanium finds it</option>
+                <option value="hard">hard &mdash; titanium does not</option>
+                <option value="insane">insane &mdash; nor does claustrophobia</option>
+              </select>
+            </div>
+            <div id="puz-listwrap">
+              <table id="puz-list">
+                <thead><tr><th>#</th><th>Difficulty</th><th>Ply</th><th>To move</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+    
+          <div id="puz-live" style="display:none;margin-top:12px">
+            <div class="stats" style="margin-bottom:10px">
+              <div>Puzzle <b id="puz-n">&mdash;</b></div>
+              <div>Difficulty <b id="puz-diff">&mdash;</b></div>
+              <div>To move <b id="puz-side">&mdash;</b></div>
+              <div>Wins <b id="puz-k">&mdash;</b></div>
+            </div>
+            <p class="note" id="puz-ask"></p>
+            <div id="puz-verdict" class="verdict"></div>
+            <div class="buttons" style="margin-top:10px">
+              <button class="primary" id="btn-puz-playout" title="Hands the other side to the engine, so the position can be played out rather than only answered">Play it out</button>
+              <button id="btn-puz-show">Show the answer</button>
+              <button id="btn-puz-retry">Try again</button>
+              <button id="btn-puz-next">Next</button>
+              <button id="btn-puz-exit">Close</button>
+            </div>
+            <p class="note" id="puz-provenance"></p>
+          </div>
+        </div>
+
+  </div>
+</div>
+
+<script src="net.js"></script>
+<script src="app.js"></script>
+<script>
+"use strict";
+const C = 56, G = 10, STEP = C + G, SIZE = 9 * C + 8 * G;
+const $ = id => document.getElementById(id);
+const svg = $("board");
+const NS = "http://www.w3.org/2000/svg";
+const SUP = location.origin;           // holds the board and starts the engines
+
+// x grows right, y grows up, so row 0 sits at the bottom like player 1's home
+const sx = x => x * STEP;
+const sy = y => (8 - y) * STEP;
+
+// One engine per AI player, plus one for analysis when it is switched on.
+// describe is what that engine answers when asked what it is thinking with,
+// which is the only trustworthy answer: the select below it is a request.
+const roles = { p1: null, p2: null, an: null };   // { id, url, applied, describe, weights }
+
+let state = null, snap = null, busy = false, auto = false, pollTimer = null, tickTimer = null;
+
+// The game on the board, held here rather than only in the engines, because the
+// move list, the review and the full analysis all need the whole game while the
+// engines are only ever set to the position the cursor is on.
+//   moves   the action index of each move, which is what the engines are sent
+//   labels  the engine's own name for it, U D H42, used to compare with a search
+//   names   the same move in the notation barricade.gg and the openings file use
+//   cursor  how many of those moves are on the board right now
+let game = { moves: [], labels: [], names: [], cursor: 0 };
+// Extras that only a self play record has: the outcome it was trained against
+// and the search that produced each move. Null for every other kind of game.
+let review = null;
+// A finished or half finished pass over the whole game.
+//   moves   the game it was computed for, so a game that has moved on is not
+//           painted with colours belonging to a different one
+//   evals   value of the position before ply i, for the player to move there
+//   best    what the engine would have played there
+//   upto    how many positions have been done
+let full = null;
+let fullRunning = false, fullStop = false;
+
+// Busy is only ever a look. Nothing that decides whether a click is possible
+// reads it at draw time, so a redraw that never happens cannot freeze the board.
+function setBusy(value) {
+  busy = value;
+  svg.classList.toggle("thinking", value);
+}
+
+// Two arenas of 28 bytes a node, so a node costs 56 bytes of resident memory.
+// The big sizes take a noticeable moment to allocate and touch every page.
+const ARENAS = [
+  [131072, "128k · 7 MB"], [262144, "256k · 14 MB"], [524288, "512k · 28 MB"],
+  [1048576, "1M · 56 MB"], [2097152, "2M · 112 MB"], [4194304, "4M · 224 MB"],
+  [8388608, "8M · 448 MB"], [16777216, "16M · 0.9 GB"], [33554432, "32M · 1.8 GB"],
+  [67108864, "64M · 3.6 GB"], [134217728, "128M · 7.2 GB"], [268435456, "256M · 15 GB"],
+];
+const PRESETS = {
+  low:    { time: 250,  sims: 0, threads: 1, arena: 262144,  slice: 100, exploration: 2 },
+  medium: { time: 1000, sims: 0, threads: 2, arena: 1048576, slice: 120, exploration: 2 },
+  high:   { time: 4000, sims: 0, threads: 4, arena: 4194304, slice: 200, exploration: 2 },
+};
+
+for (const id of ["arena1", "arena2", "arenaA"]) {
+  const select = $(id);
+  for (const [value, text] of ARENAS) {
+    const option = document.createElement("option");
+    option.value = value; option.textContent = text;
+    if (value === PRESETS.medium.arena) option.selected = true;
+    select.appendChild(option);
+  }
+}
+
+const settings = slot => ({
+  time: +$("time" + slot).value, sims: +$("sims" + slot).value,
+  threads: +$("thr" + slot).value, arena: +$("arena" + slot).value,
+  exploration: +$("expl" + slot).value,
+});
+const analysisSettings = () => ({ threads: +$("thrA").value, arena: +$("arenaA").value,
+  slice: +$("sliceA").value, exploration: +$("explA").value });
+const kind = slot => $("kind" + slot).value;
+const over = () => state && state.outcome !== null && state.outcome !== undefined;
+const roleOf = side => (side === 1 ? "p1" : "p2");
+// The analysis engine answers for the position it is searching. After a move
+// the next poll still carries the old one, so check before drawing it.
+const freshSnap = () => !!(snap && snap.moves && snap.moves.length && state && snap.plies === state.plies);
+
+// The wall count, as a figure plus one pip per wall still in hand. Ten pips
+// read as a quantity at a glance in a way that the numeral alone does not,
+// which is the whole reason this is not just text.
+const WALLS_EACH = 10;
+function paintWalls(box, left) {
+  const n = Math.max(0, Math.min(WALLS_EACH, left | 0));
+  let pips = "";
+  for (let i = 0; i < WALLS_EACH; i++) pips += '<i class="pip' + (i < n ? " on" : "") + '"></i>';
+  box.className = "walls" + (n === 0 ? " none" : "");
+  box.innerHTML = "<b>" + n + '</b><span class="pips">' + pips + "</span>"
+    + (n === 1 ? "wall" : "walls");
+  box.title = n + (n === 1 ? " wall" : " walls") + " still in hand";
+}
+
+function say(text, bad) {
+  $("status").textContent = text || "";
+  $("status").className = "status" + (bad ? " err" : "");
+}
+
+async function post(url, path, body) {
+  let res;
+  try {
+    res = await fetch(url + path, { method: "POST", body: body === undefined ? "" : body });
+  } catch (e) {
+    const err = new Error("cannot reach " + url);
+    err.transport = true;      // the process is gone, not the command refused
+    throw err;
+  }
+  if (!res.ok) {
+    const err = new Error(url + " returned " + res.status);
+    err.transport = true;
+    throw err;
+  }
+  const data = await res.json();
+  if (data.ok === false) throw new Error(data.error || "command failed");
+  return data;
+}
+// The engine, wherever it is. `web/app.js` sets DAEDALUS_WASM when the module
+// is on the page; without it this is the socket server, which is what the
+// development build serves. Nothing else on the page knows the difference.
+const WASM = () => window.DAEDALUS_WASM || null;
+function wasmAnswer(reply) {
+  if (reply && reply.ok === false) throw new Error(reply.error || "command failed");
+  return reply;
+}
+const sup = cmd => {
+  const web = WASM();
+  if (!web) return post(SUP, "/cmd", cmd);
+  // A move played by the network cannot be one call: the card is reached
+  // through promises and the search has to stop in the middle to wait for it.
+  // The answer is the same object `genmove` and `hint` return, so nothing above
+  // here knows which of the two paths a move came out of.
+  const word = cmd.trim().split(/\s+/)[0];
+  if ((word === "genmove" || word === "hint") && web.usingNet()) {
+    return web.searchMove(word === "genmove", 0, netProgress).then(wasmAnswer);
+  }
+  // Same reason: the overlay's heads are on the card too.
+  if (word === "heads" && web.usingNet()) {
+    return web.headsNow().then(wasmAnswer);
+  }
+  return Promise.resolve().then(() => wasmAnswer(web.cmd(cmd)));
+};
+
+// The weight file is ninety odd megabytes and only fetched when a network is
+// first asked for, so the wait is explained while it happens.
+function netProgress(seen, total) {
+  const mb = n => (n / 1e6).toFixed(0);
+  say(total ? "fetching the network… " + mb(seen) + " of " + mb(total) + " MB"
+            : "fetching the network… " + mb(seen) + " MB");
+}
+// An engine that stops answering is forgotten, so the next attempt starts a
+// fresh one instead of hammering a dead port.
+async function engCmd(role, cmd) {
+  if (WASM()) return sup(cmd);          // one session answers for every seat
+  const engine = roles[role];
+  if (!engine) throw new Error("no engine for " + role);
+  try {
+    return await post(engine.url, "/cmd", cmd);
+  } catch (e) {
+    if (!e.transport) throw e;
+    roles[role] = null;
+    post(SUP, "/kill", String(engine.id)).catch(() => {});
+    renderPanel();
+    throw new Error("the engine for " + role + " stopped responding");
+  }
+}
+
+// ---------------------------------------------------------------- engines
+
+async function ensureEngine(role) {
+  if (roles[role]) return roles[role];
+  // Nothing to start: the session is already here, and the three seats are
+  // three views of it. Recorded so the panel can report what it is thinking
+  // with, exactly as it does for a process.
+  if (WASM()) {
+    roles[role] = { id: 0, url: "wasm", applied: {}, describe: "", weights: "" };
+    await readEngine(role);
+    renderPanel();
+    return roles[role];
+  }
+  const info = await post(SUP, "/spawn");
+  roles[role] = { id: info.id, url: info.url, applied: {}, describe: "", weights: "" };
+  await syncEngine(role);
+  await pushBrain(role);
+  await applySettings(role, true);
+  await readEngine(role);
+  renderPanel();
+  return roles[role];
+}
+
+// What that engine says it is thinking with, asked of the engine itself. The
+// selects on this page are requests: a snapshot that will not load leaves the
+// engine on the heuristic, and nothing on the page would show it otherwise.
+async function readEngine(role) {
+  const engine = roles[role];
+  if (!engine) return;
+  try {
+    const answer = await post(engine.url, "/cmd", "state");
+    engine.describe = answer.brain || "";
+    engine.weights = answer.weights || "";
+  } catch (problem) {
+    engine.describe = "";
+  }
+  renderPanel();
+}
+
+async function stopEngine(role) {
+  // There is one instance and it is not going anywhere; forgetting the role is
+  // the whole of it.
+  if (WASM()) { roles[role] = null; renderPanel(); return; }
+  const engine = roles[role];
+  if (!engine) return;
+  roles[role] = null;
+  try { await post(SUP, "/kill", String(engine.id)); } catch (e) { /* already gone */ }
+  renderPanel();
+}
+
+// Replays the game as far as the cursor into a freshly started engine, so every
+// instance is looking at the position that is on the board.
+async function syncEngine(role) {
+  await engCmd(role, "moves " + game.moves.slice(0, game.cursor).join(" "));
+}
+
+// The brain is a command rather than a setting, because switching it rebuilds
+// the engine around a new evaluator.
+async function pushBrain(role) {
+    const engine = roles[role];
+    if (!engine) return;
+    const which = role === "an" ? "A" : (role === "p1" ? "1" : "2");
+    const kind = $("brain" + which).value;
+    const file = $("wts" + which).value.trim();
+    const wanted = kind === "net" ? "brain net " + file : "brain heuristic";
+    if (engine.brain === wanted) return;
+    engine.describe = "";
+    renderPanel();
+    try {
+      await engCmd(role, wanted);
+    } catch (problem) {
+      // The engine kept the evaluator it had. Say which one that is rather
+      // than leaving the select claiming a network that never loaded.
+      await readEngine(role);
+      throw problem;
+    }
+    engine.brain = wanted;
+    engine.applied = {};          // the rebuild forgets the search settings
+    await applySettings(role, true);
+    await readEngine(role);
+    if (role === "an" && $("analyse").checked) await engCmd("an", "analyze on");
+}
+
+// Only sends what actually changed. Arena is the one that matters: it rebuilds
+// the engine and throws the tree away, so it must not go out before every move.
+// GREEDY is the part that is never offered as a control. Temperature and the
+// Dirichlet noise on the root are how self play varies its games; a game being
+// played or analysed here wants the engine's best move, not a sample from its
+// visit counts, so all three go out as zero and stay there. The exploration
+// constant is a different thing entirely and is left on the page.
+const GREEDY = { temperature: 0, temp_plies: 0, dirichlet: 0 };
+
+async function applySettings(role, force) {
+  const engine = roles[role];
+  if (!engine) return;
+  const want = role === "an"
+    ? Object.assign({ time_ms: 60000, sims: 0 }, GREEDY, {
+        threads: analysisSettings().threads, exploration: analysisSettings().exploration,
+        arena: analysisSettings().arena, slice_ms: analysisSettings().slice })
+    : (s => Object.assign({ time_ms: Math.max(10, s.time), sims: Math.max(0, s.sims),
+                            threads: Math.max(1, s.threads), exploration: s.exploration,
+                            arena: s.arena }, GREEDY))(settings(role === "p1" ? 1 : 2));
+  let rebuilt = false;
+  for (const key in want) {
+    if (!force && engine.applied[key] === want[key]) continue;
+    await engCmd(role, "set " + key + " " + want[key]);
+    engine.applied[key] = want[key];
+    rebuilt = rebuilt || key === "arena";
+  }
+  // A new arena means a new engine around a freshly loaded evaluator, so what
+  // it is thinking with has to be asked again. The position survives it.
+  if (rebuilt) await readEngine(role);
+}
+
+function liveEngines() {
+  return Object.keys(roles).filter(r => roles[r]).map(r => roles[r].url);
+}
+
+async function broadcast(cmd, except) {
+  await sup(cmd);                       // the supervisor holds the real game
+  // In the browser that WAS every engine: one session, already told.
+  if (WASM()) return;
+  for (const role of ["p1", "p2", "an"]) {
+    if (roles[role] && roles[role].url !== except) await engCmd(role, cmd);
+  }
+}
+
+// Whatever went wrong, the supervisor knows the position, so replay the game as
+// far as the cursor into every engine rather than working out who missed what.
+async function resyncAll() {
+  try { state = await sup("state"); } catch (e) { return; }
+  for (const role of ["p1", "p2", "an"]) {
+    if (!roles[role]) continue;
+    try {
+      await syncEngine(role);
+      if (role === "an" && $("analyse").checked) await engCmd("an", "analyze on");
+    } catch (e) { /* engCmd has already dropped it */ }
+  }
+  redraw();
+}
+
+// ---------------------------------------------------------------- board
+
+const wallAt = (mask, wx, wy) => ((BigInt("0x" + mask) >> BigInt(wx + 8 * wy)) & 1n) === 1n;
+const DIRS = { U: 9, D: -9, L: -1, R: 1 };
+
+function destination(label, from, other) {
+  if (label[0] === "H" || label[0] === "V") return null;
+  if (label.length === 1) {
+    let to = from + DIRS[label];
+    if (to === other) to += DIRS[label];
+    return to;
+  }
+  return from + DIRS[label[0]] + DIRS[label[1]];
+}
+
+// The move under the name the rest of the world uses: a pawn move is the square
+// it lands on, a wall is the square south west of it plus h or v. The same
+// convention src/openings.rs writes and barricade.gg shares its games in. A
+// pawn move has to be named from the board rather than from the direction,
+// which is what makes a jump come out right.
+function nameOf(label, at) {
+  if (label[0] === "H" || label[0] === "V") {
+    return String.fromCharCode(97 + +label[1]) + (+label[2] + 1) + label[0].toLowerCase();
+  }
+  const me = at.to_move === 1 ? at.pos[0] : at.pos[1];
+  const other = at.to_move === 1 ? at.pos[1] : at.pos[0];
+  const cell = destination(label, me, other);
+  return String.fromCharCode(97 + (cell % 9)) + (Math.floor(cell / 9) + 1);
+}
+
+function el(tag, attrs) {
+  const node = document.createElementNS(NS, tag);
+  for (const k in attrs) node.setAttribute(k, attrs[k]);
+  return node;
+}
+// Anything that is not a click target is painted with .deco, otherwise it sits
+// on top of the cells and swallows the click meant for the square underneath.
+function deco(tag, attrs) {
+  attrs.class = attrs.class ? attrs.class + " deco" : "deco";
+  return el(tag, attrs);
+}
+
+function render() {
+  svg.textContent = "";
+  if (!state) return;
+  const me = state.to_move === 1 ? state.pos[0] : state.pos[1];
+  const other = state.to_move === 1 ? state.pos[1] : state.pos[0];
+  const myTurn = kind(state.to_move) === "human" && !over();
+
+  const targets = new Map(), walls = new Map();
+  for (const m of state.legal || []) {
+    if (m.label[0] === "H" || m.label[0] === "V") walls.set(m.label, m.i);
+    else targets.set(destination(m.label, me, other), m.i);
+  }
+
+  svg.appendChild(deco("rect", { x: 0, y: sy(8), width: SIZE, height: C, rx: 8, fill: "#4c9aff10" }));
+  svg.appendChild(deco("rect", { x: 0, y: sy(0), width: SIZE, height: C, rx: 8, fill: "#ff7a5910" }));
+
+  for (let y = 0; y < 9; y++) for (let x = 0; x < 9; x++) {
+    const cell = x + 9 * y;
+    const hit = myTurn && targets.has(cell);
+    const rect = el("rect", { x: sx(x), y: sy(y), width: C, height: C, rx: 7, class: "cell" + (hit ? " target" : "") });
+    // Checked here rather than above: if a redraw is ever missed the square is
+    // still live, and a click during a search is simply ignored.
+    if (hit) rect.onclick = () => { if (!busy) play(targets.get(cell)); };
+    svg.appendChild(rect);
+  }
+
+  for (let wy = 0; wy < 8; wy++) for (let wx = 0; wx < 8; wx++) {
+    if (wallAt(state.h, wx, wy))
+      svg.appendChild(deco("rect", { x: sx(wx), y: sy(wy + 1) + C, width: 2 * C + G, height: G, rx: 4, fill: "var(--wall)" }));
+    if (wallAt(state.v, wx, wy))
+      svg.appendChild(deco("rect", { x: sx(wx) + C, y: sy(wy + 1), width: G, height: 2 * C + G, rx: 4, fill: "var(--wall)" }));
+  }
+
+  if (freshHeads() && headsWanted()) renderHeads();
+  if ($("overlay").checked && freshSnap()) renderOverlay(me, other);
+
+  const pawn = (cell, colour) => {
+    const x = cell % 9, y = (cell - x) / 9;
+    svg.appendChild(deco("circle", { cx: sx(x) + C / 2, cy: sy(y) + C / 2, r: C * 0.31, fill: colour }));
+  };
+  pawn(state.pos[0], "var(--p1)");
+  pawn(state.pos[1], "var(--p2)");
+  renderNext(me, other);
+
+  if (myTurn) for (let wy = 0; wy < 8; wy++) for (let wx = 0; wx < 8; wx++) {
+    for (const orientation of ["H", "V"]) {
+      const id = walls.get(orientation + wx + wy);
+      if (id === undefined) continue;
+      const box = orientation === "H"
+        ? { x: sx(wx), y: sy(wy + 1) + C, width: 2 * C + G, height: G }
+        : { x: sx(wx) + C, y: sy(wy + 1), width: G, height: 2 * C + G };
+      const hit = el("rect", Object.assign({ rx: 4, class: "hit" }, box));
+      hit.onclick = () => { if (!busy) play(id); };
+      svg.appendChild(hit);
+    }
+  }
+}
+
+// The move the loaded game goes on with from here, outlined rather than filled
+// so the prediction layers underneath stay readable. Nothing to draw once the
+// cursor has reached the end of the game.
+function renderNext(me, other) {
+  const played = game.labels[game.cursor];
+  if (!played) return;
+  const ring = { fill: "none", stroke: "var(--good)", "stroke-width": 2.5 };
+  if (played[0] === "H" || played[0] === "V") {
+    const wx = +played[1], wy = +played[2];
+    const box = played[0] === "H"
+      ? { x: sx(wx), y: sy(wy + 1) + C, width: 2 * C + G, height: G }
+      : { x: sx(wx) + C, y: sy(wy + 1), width: G, height: 2 * C + G };
+    svg.appendChild(deco("rect", Object.assign({ rx: 4 }, box, ring)));
+  } else {
+    const cell = destination(played, me, other);
+    const x = cell % 9, y = (cell - x) / 9;
+    svg.appendChild(deco("circle", Object.assign(
+      { cx: sx(x) + C / 2, cy: sy(y) + C / 2, r: C * 0.4 }, ring)));
+  }
+}
+
+function renderOverlay(me, other) {
+  const top = snap.moves.slice(0, Math.max(1, +$("topn").value));
+  const most = Math.max.apply(null, top.map(m => m.visits).concat([1]));
+  const total = snap.visits || 1;
+  top.forEach((m, rank) => {
+    const alpha = 0.14 + 0.5 * (m.visits / most);
+    const tint = m.value > 0.15 ? "90,196,137" : m.value < -0.15 ? "255,122,89" : "160,170,185";
+    if (m.label[0] === "H" || m.label[0] === "V") {
+      const wx = +m.label[1], wy = +m.label[2];
+      const box = m.label[0] === "H"
+        ? { x: sx(wx), y: sy(wy + 1) + C, width: 2 * C + G, height: G }
+        : { x: sx(wx) + C, y: sy(wy + 1), width: G, height: 2 * C + G };
+      svg.appendChild(deco("rect", Object.assign({ rx: 4, fill: "rgba(" + tint + "," + alpha + ")" }, box)));
+    } else {
+      const cell = destination(m.label, me, other);
+      const x = cell % 9, y = (cell - x) / 9;
+      svg.appendChild(deco("circle", { cx: sx(x) + C / 2, cy: sy(y) + C / 2, r: C * 0.42,
+        fill: "rgba(" + tint + "," + alpha + ")" }));
+      if (rank < 4) {
+        const text = deco("text", { x: sx(x) + C / 2, y: sy(y) + C / 2 + 4, "text-anchor": "middle",
+          "font-size": 13, fill: "#e6e9ee", "font-weight": 600 });
+        text.textContent = Math.round(100 * m.visits / total) + "%";
+        svg.appendChild(text);
+      }
+    }
+  });
+}
+
+// ---------------------------------------------------------------- the game
+
+const movesTo = n => game.moves.slice(0, n).join(" ");
+
+function truncate(n) {
+  game.moves.length = n; game.labels.length = n; game.names.length = n;
+}
+
+// A self play record describes one exact game. The moment the board holds a
+// different one the record is no longer about it, so it goes rather than point
+// at the wrong ply.
+function dropReview(why) {
+  if (!review) return;
+  review = null;
+  if (why) say(why);
+}
+
+// Puts the engines and the supervisor on the position the cursor is on. Every
+// step through a game goes through here, so there is one answer to what the
+// engines are looking at.
+async function syncCursor() {
+  snap = null;
+  heads = null;
+  headsPly = -1;
+  await broadcast("moves " + movesTo(game.cursor));
+  await refresh();
+  if (roles.an && $("analyse").checked) await engCmd("an", "analyze on");
+}
+
+async function gotoPly(ply) {
+  const want = Math.max(0, Math.min(game.moves.length, ply));
+  if (want === game.cursor && state && state.plies === want) return;
+  game.cursor = want;
+  await syncCursor();
+}
+
+const step = ply => withBusy(() => gotoPly(ply));
+
+// Names a move the way the token asks for it: the action index the engine uses,
+// the engine's own label, or the algebraic name barricade.gg and the openings
+// file are written in. Matched against the legal moves rather than parsed, so
+// it cannot invent a move the rules do not allow and needs no special case for
+// a jump or a sidestep.
+function resolve(token, at) {
+  const want = String(token).trim();
+  if (!want) return null;
+  const index = /^\d+$/.test(want) ? +want : -1;
+  const label = want.toUpperCase();
+  const name = normalName(want);
+  let found = null;
+  for (const m of at.legal || []) {
+    if (m.i === index || m.label === label || nameOf(m.label, at) === name) {
+      if (!found) found = m;
+    }
+  }
+  return found;
+}
+
+// h and v are written either side of the square by different tools. One order
+// is picked here so the rest of the page only ever sees the one in openings.rs.
+function normalName(token) {
+  const t = token.trim().toLowerCase();
+  return /^[hv][a-i][1-8]$/.test(t) ? t[1] + t[2] + t[0] : t;
+}
+
+// Move numbers and separators are what a game copied out of somewhere else
+// carries along with it.
+function splitMoves(text) {
+  return String(text).split(/[\s,;]+/)
+    .filter(t => t && !/^\d+[.)]+$/.test(t))       // 1. and 12) number the moves
+    .map(t => t.replace(/[.)]+$/, ""))
+    .filter(t => t.length > 0);
+}
+
+// Replays a list of moves through the supervisor one at a time. Naming a move
+// needs the position it is played from and resolving a name needs the legal
+// moves there, so both are read off the board as it goes rather than worked out
+// from the notation. On the way out the supervisor is left holding the game.
+async function walkGame(tokens) {
+  await sup("newgame");
+  let at = await sup("state");
+  const built = { moves: [], labels: [], names: [], cursor: 0 };
+  for (const token of tokens) {
+    const found = resolve(token, at);
+    if (!found) {
+      throw new Error("cannot play " + token + " at ply " + (built.moves.length + 1));
+    }
+    built.names.push(nameOf(found.label, at));
+    built.labels.push(found.label);
+    built.moves.push(found.i);
+    at = await sup("play " + found.i);
+  }
+  built.cursor = built.moves.length;
+  return { built, at };
+}
+
+// Puts a game on the board, wherever it came from.
+async function loadGame(tokens, source, startAt) {
+  const saved = movesTo(game.cursor);
+  let built;
+  try {
+    built = (await walkGame(tokens)).built;
+  } catch (problem) {
+    // Half of somebody else's game is worse than none of it, so the position
+    // the page was on goes back before the failure is reported.
+    try { await broadcast("moves " + saved); } catch (e) { /* resyncAll follows */ }
+    throw problem;
+  }
+  dropReview();
+  full = null;
+  game = built;
+  if (startAt !== undefined) game.cursor = Math.max(0, Math.min(built.moves.length, startAt));
+  $("load-src").textContent = source || "";
+  await syncCursor();
+}
+
+// The board moved under us: another client, a script, or a command that only
+// half went out. A supervisor that is holding the opening of the game we have
+// is only a cursor that moved; anything else is a game we do not know.
+async function reconcile(fresh) {
+  const history = fresh.history || [];
+  const known = history.length <= game.moves.length
+    && history.every((mv, i) => mv === game.moves[i]);
+  if (known) {
+    game.cursor = history.length;
+    return false;
+  }
+  const { built } = await walkGame(history.map(String));
+  dropReview();
+  full = null;
+  game = built;
+  $("load-src").textContent = "";
+  return true;
+}
+
+function parseLoad(text) {
+  const raw = String(text).trim();
+  if (!raw) return { error: "paste a barricade.gg link, a share code or a list of moves" };
+  if (/^https?:\/\//i.test(raw) || /^(www\.)?barricade\.gg/i.test(raw)) {
+    let url;
+    try { url = new URL(/^https?:\/\//i.test(raw) ? raw : "https://" + raw); }
+    catch (e) { return { error: "that is not a link this page can read" }; }
+    const moves = url.searchParams.get("moves");
+    const code = url.searchParams.get("game");
+    if (moves) {
+      // barricade.gg compresses the list when it is handed over in one piece.
+      if (moves.indexOf(",") < 0 && moves.length > 4) {
+        return { error: "that link carries its moves compressed. Open it on barricade.gg, copy the moves and paste those instead." };
+      }
+      return { tokens: splitMoves(moves) };
+    }
+    if (code) return { code: code };
+    return { error: "that link carries no game" };
+  }
+  const tokens = splitMoves(raw);
+  if (!tokens.length) return { error: "nothing in there looks like a move" };
+  // A share code is one word that is not a move.
+  if (tokens.length === 1 && !/^([a-i][1-9]|[a-i][1-8][hv]|[hv][a-i][1-8]|[udlr]{1,2}|[hv][0-7][0-7]|\d+)$/i.test(tokens[0])) {
+    return { code: tokens[0] };
+  }
+  return { tokens: tokens };
+}
+
+// The share code of a finished game is enough to read it back, and the answer
+// is served with the header a browser needs to accept it from here.
+async function fetchBarricade(code) {
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 9000);
+  let res;
+  try {
+    res = await fetch("https://api.barricade.gg/games/" + encodeURIComponent(code),
+                      { signal: stop.signal, cache: "no-store" });
+  } catch (problem) {
+    throw new Error("barricade.gg could not be reached from this page");
+  } finally {
+    clearTimeout(timer);
+  }
+  if (res.status === 404) throw new Error("barricade.gg has no game " + code);
+  if (!res.ok) throw new Error("barricade.gg answered " + res.status);
+  const data = await res.json();
+  const csv = typeof data.historyCsv === "string" ? data.historyCsv : "";
+  if (!csv.trim()) throw new Error("that game has no moves recorded");
+  const who = [data.player1Username, data.player2Username].filter(Boolean).join(" v ");
+  return { tokens: splitMoves(csv), source: who ? code + " · " + who : code };
+}
+
+async function loadTyped() {
+  if (busy) return;
+  const asked = parseLoad($("load-input").value);
+  if (asked.error) { say(asked.error, true); return; }
+  await withBusy(async () => {
+    if (asked.code) {
+      say("Reading game " + asked.code + " from barricade.gg…");
+      const got = await fetchBarricade(asked.code);
+      await loadGame(got.tokens, "barricade.gg " + got.source);
+      say("Loaded " + game.moves.length + " moves from barricade.gg.");
+    } else {
+      const link = /barricade\.gg/i.test($("load-input").value);
+      say("Reading " + asked.tokens.length + " moves…");
+      await loadGame(asked.tokens, link ? "barricade.gg link" : "pasted");
+      say("Loaded " + game.moves.length + " moves.");
+    }
+    auto = false;
+    $("btn-auto").textContent = "Auto-play";
+  });
+}
+
+async function loadTrainingGame() {
+  await withBusy(async () => {
+    say("Reading a self play game off disk…");
+    const record = await sup("traingame");
+    auto = false;
+    $("btn-auto").textContent = "Auto-play";
+    await loadGame(record.moves.map(String), record.file + " @ " + record.at, 0);
+    review = record;
+    redraw();
+    say("Loaded " + record.plies + " plies from " + record.file + ". Step with the arrows.");
+  });
+}
+
+// ---------------------------------------------------------------- full analysis
+
+// How much of the analysis still describes the game on the board. A game that
+// has been added to keeps the colours it already earned; one that has been
+// replaced keeps none of them.
+function sharedPrefix() {
+  if (!full) return 0;
+  const n = Math.min(full.moves.length, game.moves.length);
+  let i = 0;
+  while (i < n && full.moves[i] === game.moves[i]) i++;
+  return i;
+}
+
+// What the move at ply i cost. The value before it is the mover's; the value
+// after it belongs to the other player, so the two are added rather than
+// subtracted. Both come out of the same pass, so no move needs a search of its
+// own to be judged.
+function moveLoss(i) {
+  if (!full || i >= sharedPrefix()) return null;
+  const before = full.evals[i], after = full.evals[i + 1];
+  if (typeof before !== "number" || typeof after !== "number") return null;
+  return Math.max(0, before + after);
+}
+
+function lossColour(loss) {
+  const t = Math.pow(Math.min(1, loss / 0.5), 0.65);
+  return "hsl(" + Math.round(140 - 140 * t) + ", 68%, " + Math.round(62 - 6 * t) + "%)";
+}
+
+// One search per position, from the opening to the end of the game.
+//
+// The value is read out of the engine's snapshot rather than off the hint
+// reply: the reply carries the raw root average, the snapshot carries the value
+// of the most visited move, and the second is what the eval bar and the
+// candidate list show. Two numbers for the same position would make the bar
+// jump the moment the live analysis took over from the pass.
+async function runFullAnalysis() {
+  if (fullRunning) return;
+  if (busy) { say("Something else is using the engines just now.", true); return; }
+  if (!game.moves.length) { say("There is no game to analyse yet.", true); return; }
+  // The same engine and the same settings as the live analysis, down to the
+  // length of a pass: live analysis gives a position pass after pass, and this
+  // gives every position one.
+  const perMove = Math.max(20, Math.min(2000, +$("sliceA").value || 120));
+  fullRunning = true;
+  fullStop = false;
+  auto = false;                       // a pass takes minutes; auto play must not wake up into it
+  $("btn-auto").textContent = "Auto-play";
+  full = { moves: game.moves.slice(), evals: [], best: [], bestName: [], upto: 0, done: false, ms: perMove };
+  renderFull();
+  await withBusy(async () => {
+    await ensureEngine("an");
+    try {
+      await engCmd("an", "analyze off");
+      // time_ms is about to go out behind applySettings' back, so what it
+      // believes the engine is set to is no longer true.
+      roles.an.applied = {};
+      await engCmd("an", "set sims 0");
+      await engCmd("an", "set time_ms " + perMove);
+      for (let ply = 0; ply <= full.moves.length; ply++) {
+        if (fullStop) break;
+        const at = await engCmd("an", "moves " + full.moves.slice(0, ply).join(" "));
+        if (at.outcome !== null && at.outcome !== undefined) {
+          // Nothing left to search. The game is over and it is not the player
+          // to move who won it.
+          full.evals[ply] = at.outcome === 0 ? 0 : (at.outcome === at.to_move ? 1 : -1);
+          full.best[ply] = null;
+          full.bestName[ply] = "";
+        } else {
+          const hint = await engCmd("an", "hint");
+          const shot = await engCmd("an", "status");
+          full.evals[ply] = typeof shot.value === "number" ? shot.value : hint.value;
+          full.best[ply] = hint.label;
+          full.bestName[ply] = nameOf(hint.label, at);
+        }
+        full.upto = ply + 1;
+        renderFull();
+        renderMoves(true);
+      }
+      full.done = !fullStop;
+    } finally {
+      await restoreAnalysis();
+    }
+  });
+  fullRunning = false;
+  renderFull();
+  redraw();
+  say(full.done
+    ? "Analysed " + full.moves.length + " moves, " + perMove + " ms a position."
+    : "Stopped after " + Math.max(0, full.upto - 1) + " of " + full.moves.length + " moves.");
+}
+
+// Puts the analysis engine back the way the page asks for it. The switch is
+// read now rather than remembered from the start of the pass, so a switch
+// flicked while it ran is still obeyed.
+async function restoreAnalysis() {
+  if (!roles.an) return;
+  if (!$("analyse").checked) { await stopEngine("an"); return; }
+  try {
+    roles.an.applied = {};
+    await pushBrain("an");            // a brain picked while the pass ran
+    await applySettings("an", true);
+    await engCmd("an", "moves " + movesTo(game.cursor));
+    await engCmd("an", "analyze on");
+  } catch (problem) { /* the engine is gone and engCmd has already dropped it */ }
+}
+
+function renderFull() {
+  const running = fullRunning;
+  $("btn-full").disabled = running || busy || !game.moves.length;
+  $("btn-full").title = game.moves.length ? "" : "load or play a game first";
+  $("btn-full-stop").style.display = running ? "" : "none";
+  $("full-prog").style.display = full && (running || !full.done) && full.upto ? "" : "none";
+  if (full && full.moves.length) {
+    const done = Math.min(full.upto, full.moves.length + 1);
+    $("full-bar").style.width = (100 * done / (full.moves.length + 1)).toFixed(1) + "%";
+  }
+  const behind = full && !running && sharedPrefix() < full.moves.length
+    ? " · the board has moved on" : "";
+  $("full-state").textContent = !full ? ""
+    : running ? "position " + full.upto + " of " + (full.moves.length + 1)
+    : full.done ? full.ms + " ms a position" + behind
+    : "stopped at " + full.upto + " of " + (full.moves.length + 1) + behind;
+  renderWinGraph();
+  renderSummary();
+}
+
+// Player one's chance, ply by ply, from the pass the full analysis just made.
+//
+// full.evals[ply] is the value from the point of view of whoever is to move
+// there, which alternates -- drawn raw it would zigzag between the two players'
+// opinions and mean nothing. Player one moves on even plies, so odd ones are
+// negated and the whole line reads as one player's game.
+const WIN_W = 640, WIN_H = 132, WIN_PAD = 22;
+
+function winPercent(ply) {
+  const v = full.evals[ply];
+  if (typeof v !== "number") return null;
+  return ((ply % 2 === 0 ? v : -v) + 1) / 2 * 100;
+}
+
+function renderWinGraph() {
+  const box = $("wingraph");
+  const ready = full && full.upto > 1;
+  box.style.display = ready ? "" : "none";
+  if (!ready) return;
+
+  const last = Math.min(full.upto, full.moves.length + 1);
+  const pts = [];
+  for (let ply = 0; ply < last; ply++) {
+    const pc = winPercent(ply);
+    if (pc !== null) pts.push([ply, pc]);
+  }
+  if (pts.length < 2) { box.style.display = "none"; return; }
+
+  const span = Math.max(1, full.moves.length);
+  const x = ply => WIN_PAD + (WIN_W - WIN_PAD - 6) * (ply / span);
+  const y = pc => 6 + (WIN_H - 26) * (1 - pc / 100);
+  const line = pts.map(([p, v], i) => (i ? "L" : "M") + x(p).toFixed(1) + " " + y(v).toFixed(1));
+  const mid = y(50);
+  // Two fills against the halfway line: above it is player one's, below is
+  // player two's, so which way the game is running is a shape not a reading.
+  const area = who => {
+    const clip = who === 1 ? "0 0 " + WIN_W + " " + mid
+                           : "0 " + mid + " " + WIN_W + " " + (WIN_H - mid);
+    return '<clipPath id="wg' + who + '"><rect x="' + clip.split(" ")[0] + '" y="'
+      + clip.split(" ")[1] + '" width="' + clip.split(" ")[2] + '" height="'
+      + clip.split(" ")[3] + '"/></clipPath>'
+      + '<path d="' + line.join(" ") + " L" + x(pts[pts.length - 1][0]).toFixed(1)
+      + " " + mid.toFixed(1) + " L" + x(pts[0][0]).toFixed(1) + " " + mid.toFixed(1)
+      + ' Z" fill="var(--' + (who === 1 ? "p1" : "p2") + ')" opacity=".22" '
+      + 'clip-path="url(#wg' + who + ')"/>';
+  };
+
+  const here = Math.min(game.cursor, span);
+  const at = winPercent(Math.min(here, full.evals.length - 1));
+  const marks = [];
+  for (let ply = 0; ply <= span; ply += Math.max(1, Math.round(span / 8))) {
+    marks.push('<text x="' + x(ply).toFixed(1) + '" y="' + (WIN_H - 4)
+      + '" fill="var(--dim)" font-size="9" text-anchor="middle">' + ply + "</text>");
+  }
+
+  box.innerHTML =
+    '<div class="gtitle"><b>Player 1 win chance</b><span>'
+      + (at === null ? "" : at.toFixed(0) + "% at ply " + here) + "</span>"
+      + '<span style="margin-left:auto">click to jump</span></div>'
+    + '<svg viewBox="0 0 ' + WIN_W + " " + WIN_H + '" preserveAspectRatio="none">'
+    + area(1) + area(2)
+    // Drawn over the fills, not under them: level is the line the eye measures
+    // everything else against, and underneath it is simply invisible.
+    + '<line x1="' + WIN_PAD + '" y1="' + mid + '" x2="' + (WIN_W - 6) + '" y2="' + mid
+      + '" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"'
+      + ' vector-effect="non-scaling-stroke"/>'
+    + '<text x="2" y="' + (mid + 3) + '" fill="var(--dim)" font-size="9">50</text>'
+    + '<path d="' + line.join(" ") + '" fill="none" stroke="var(--ink)" stroke-width="1.6"'
+      + ' stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+    + '<line x1="' + x(here).toFixed(1) + '" y1="4" x2="' + x(here).toFixed(1)
+      + '" y2="' + (WIN_H - 20) + '" stroke="var(--accent)" stroke-width="1"'
+      + ' vector-effect="non-scaling-stroke"/>'
+    + '<text x="2" y="12" fill="var(--dim)" font-size="9">100</text>'
+    + '<text x="6" y="' + (WIN_H - 20) + '" fill="var(--dim)" font-size="9">0</text>'
+    + marks.join("")
+    + "</svg>";
+
+  // Reading a graph of a game and not being able to go to the interesting ply
+  // is a tease, and gotoPly already does the work.
+  const svg = box.querySelector("svg");
+  svg.onclick = event => {
+    const rect = svg.getBoundingClientRect();
+    const frac = (event.clientX - rect.left) / rect.width;
+    const ply = Math.round((frac * WIN_W - WIN_PAD) / (WIN_W - WIN_PAD - 6) * span);
+    if (!busy) gotoPly(Math.max(0, Math.min(span, ply))).catch(e => say(e.message, true));
+  };
+}
+
+function renderSummary() {
+  const box = $("full-summary");
+  box.textContent = "";
+  $("legend").style.display = full && full.upto > 1 ? "" : "none";
+  if (!full || full.upto < 2) return;
+  const tally = [{ n: 0, sum: 0, bad: 0, same: 0 }, { n: 0, sum: 0, bad: 0, same: 0 }];
+  for (let i = 0; i < game.moves.length; i++) {
+    const loss = moveLoss(i);
+    if (loss === null) continue;
+    const t = tally[i % 2];
+    t.n++;
+    t.sum += loss;
+    if (loss >= 0.3) t.bad++;
+    if (full.best[i] && full.best[i] === game.labels[i]) t.same++;
+  }
+  for (const side of [0, 1]) {
+    const t = tally[side];
+    if (!t.n) continue;
+    const line = document.createElement("div");
+    const who = document.createElement("span");
+    who.className = side === 0 ? "p1" : "p2";
+    who.textContent = "Player " + (side + 1);
+    line.appendChild(who);
+    const numbers = [[" · lost ", (t.sum / t.n).toFixed(3)], [" a move · ", String(t.bad)],
+                     [" over 0.3 · ", Math.round(100 * t.same / t.n) + "%"]];
+    for (const [before, figure] of numbers) {
+      line.appendChild(document.createTextNode(before));
+      const b = document.createElement("b");
+      b.textContent = figure;
+      line.appendChild(b);
+    }
+    line.appendChild(document.createTextNode(" the engine's move"));
+    box.appendChild(line);
+  }
+}
+
+// ---------------------------------------------------------------- panel
+
+// What an engine is thinking with, in the words the engine itself used, next to
+// what the select asked for. The two come apart whenever a snapshot fails to
+// load, and that is precisely the case worth seeing.
+function brainOf(role, which) {
+  const engine = roles[role];
+  const wanted = $("brain" + which).value;
+  if (!engine) return { text: "no engine", bad: false, net: false };
+  if (!engine.describe) return { text: "…", bad: false, net: false };
+  const net = engine.describe.indexOf("network") === 0;
+  if (wanted === "net" && !net) {
+    return { text: engine.describe + " — no network loaded", bad: true, net: false };
+  }
+  const file = engine.weights ? engine.weights.replace(/^.*\//, "") : "";
+  return { text: engine.describe + (net && file ? " · " + file : ""), bad: false, net };
+}
+
+// One sentence saying whose turn it is and what is answering for them, because
+// the only other clue was a highlighted panel and a brain select further down.
+function renderTurn() {
+  const line = $("turnline");
+  const dot = line.querySelector(".dot");
+  const who = line.querySelector(".who");
+  const words = (before, strong, after) => {
+    who.textContent = before;
+    if (strong) {
+      const b = document.createElement("b");
+      b.textContent = strong;
+      who.appendChild(b);
+    }
+    if (after) who.appendChild(document.createTextNode(after));
+  };
+  line.className = "turn";
+  if (!state) { words("…"); return; }
+  if (over()) {
+    dot.style.background = "var(--dim)";
+    words(state.outcome === 0 ? "Game over · draw by repetition"
+                              : "Game over · player " + state.outcome + " wins");
+    return;
+  }
+  const side = state.to_move;
+  dot.style.background = side === 1 ? "var(--p1)" : "var(--p2)";
+  const inside = game.cursor < game.moves.length
+    ? " · ply " + game.cursor + " of " + game.moves.length : "";
+  if (inside) {
+    words("Player " + side + " to move · inside ", review ? "a self play game" : "the loaded game", inside);
+    return;
+  }
+  if (kind(side) !== "ai") { words("Player " + side + " to move · your turn"); return; }
+  const brain = brainOf(roleOf(side), String(side));
+  const s = settings(side);
+  const budget = s.sims > 0 ? s.sims.toLocaleString() + " sims" : s.time + " ms";
+  if (brain.bad) line.classList.add("bad");
+  if (busy) {
+    line.classList.add("working");
+    words("Player " + side + " is thinking with ", brain.text, " · " + budget);
+  } else {
+    words("Player " + side + " to move · answered by ", brain.text, " · " + budget);
+  }
+}
+
+// Player 1 fills the bar from the bottom, which is the end of the board they
+// start on. A reading left over from a pass rather than from a search running
+// right now is dimmed rather than hidden, since it is still the truth about
+// this position.
+function evalForBoard() {
+  if (freshSnap() && typeof snap.value === "number") {
+    return { value: state.to_move === 2 ? -snap.value : snap.value, live: true };
+  }
+  if (full && game.cursor <= sharedPrefix() && typeof full.evals[game.cursor] === "number") {
+    const v = full.evals[game.cursor];
+    return { value: game.cursor % 2 === 0 ? v : -v, live: false };
+  }
+  return null;
+}
+
+function renderEval() {
+  const box = $("eval"), fill = $("evalfill"), num = $("evalnum");
+  const read = evalForBoard();
+  box.classList.toggle("idle", !read);
+  box.classList.toggle("stale", !!read && !read.live);
+  if (!read) {
+    fill.style.height = "50%";
+    num.textContent = "—";
+    num.className = "low";
+    box.title = "Switch the analysis on, or run a full analysis, to have this filled in";
+    return;
+  }
+  const value = Math.max(-1, Math.min(1, read.value));
+  fill.style.height = (50 + 50 * value).toFixed(1) + "%";
+  num.textContent = (value >= 0 ? "+" : "") + value.toFixed(2);
+  num.className = value >= 0 ? "low" : "high";
+  box.title = (read.live ? "Live search" : "From the full analysis")
+    + ": " + (value >= 0 ? "+" : "") + value.toFixed(3) + " for player 1";
+}
+
+// Rebuilt only when the game, the cursor or the analysis has actually moved.
+// The poll comes round three times a second and a list rebuilt that often
+// would fight with the pointer.
+let movesShown = null;
+
+function moveButton(i) {
+  const button = document.createElement("button");
+  button.className = "mvb" + (game.cursor === i + 1 ? " on" : "");
+  // The name is its own element so it can be the one that ellipsises when the
+  // column is narrow; the annotation beside it is never truncated.
+  const name = document.createElement("span");
+  name.className = "mv";
+  name.textContent = game.names[i] || game.labels[i] || "?";
+  button.appendChild(name);
+  button.onclick = () => step(i + 1);
+  const loss = moveLoss(i);
+  const best = i < sharedPrefix() ? (full && full.best[i]) : null;
+  if (best && best === game.labels[i]) {
+    button.style.color = "var(--accent)";
+    button.title = game.labels[i] + " · the move the engine would have played";
+  } else if (loss !== null) {
+    button.style.color = lossColour(loss);
+    button.title = game.labels[i] + " · lost " + loss.toFixed(3)
+      + (best ? " · the engine wanted " + (full.bestName[i] || best) : "");
+  } else {
+    button.title = game.labels[i] || "";
+  }
+  return button;
+}
+
+function renderMoves(force) {
+  const key = [game.moves.length, game.cursor, full ? full.upto : -1,
+               full ? sharedPrefix() : -1, game.moves.join(",")].join("|");
+  if (!force && key === movesShown) return;
+  movesShown = key;
+
+  const list = $("movelist");
+  list.textContent = "";
+  const head = document.createElement("div");
+  head.className = "mrow";
+  const blank = document.createElement("span");
+  blank.className = "num";
+  head.appendChild(blank);
+  if (game.moves.length) {
+    const start = document.createElement("button");
+    start.className = "mvb start" + (game.cursor === 0 ? " on" : "");
+    start.textContent = "start position";
+    start.onclick = () => step(0);
+    head.appendChild(start);
+  } else {
+    const empty = document.createElement("span");
+    empty.className = "mvb start";
+    empty.textContent = "no moves yet";
+    head.appendChild(empty);
+  }
+  list.appendChild(head);
+
+  for (let i = 0; i < game.moves.length; i += 2) {
+    const row = document.createElement("div");
+    row.className = "mrow";
+    const number = document.createElement("span");
+    number.className = "num";
+    number.textContent = (i / 2 + 1) + ".";
+    row.appendChild(number);
+    for (const j of [i, i + 1]) {
+      if (j < game.moves.length) {
+        row.appendChild(moveButton(j));
+      } else {
+        const gap = document.createElement("span");
+        gap.className = "mvb empty";
+        row.appendChild(gap);
+      }
+    }
+    list.appendChild(row);
+  }
+  const here = list.querySelector(".mvb.on");
+  if (here) {
+    // Scroll the LIST, never the page. scrollIntoView walks every scrollable
+    // ancestor it can find, the document included, so once the card sat below
+    // the fold every move played dragged the whole window down to it -- the
+    // board jumped out from under the cursor mid-game. "nearest" bounds how far
+    // it scrolls each ancestor, not which ancestors it touches.
+    const top = here.offsetTop - list.offsetTop;
+    const bottom = top + here.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = bottom - list.clientHeight;
+    }
+  }
+
+  $("moves-count").textContent = game.moves.length
+    ? game.moves.length + (game.moves.length === 1 ? " move" : " moves") : "";
+  $("bar-link").href = game.names.length
+    ? "https://barricade.gg/analysis?moves=" + encodeURIComponent(game.names.join(","))
+    : "https://barricade.gg/analysis";
+}
+
+// Which ply the record is showing, so a redraw on the poll timer does not
+// rebuild a card that has not changed.
+let reviewShown = null;
+
+function renderReview() {
+  const on = !!review;
+  $("review-card").style.display = on ? "" : "none";
+  $("btn-train-again").style.display = on ? "" : "none";
+  if (!on) { reviewShown = null; return; }
+  $("train-src").textContent = review.file + " @ " + review.at;
+  const showing = review.at + ":" + game.cursor;
+  if (reviewShown === showing) return;
+  reviewShown = showing;
+
+  const ply = game.cursor;
+  $("train-result").textContent = review.result === 0
+    ? "draw" : "player " + review.result + " wins";
+  $("train-margin").textContent = (review.margin >= 0 ? "+" : "") + review.margin.toFixed(1) + " steps";
+  $("train-move").textContent = game.names[ply] || "—";
+
+  // The search that produced the move, as it was recorded: the value it settled
+  // on and the visit shares that became the policy target.
+  const search = review.search[ply];
+  const body = $("train-policy").querySelector("tbody");
+  body.textContent = "";
+  $("train-q").textContent = search
+    ? (search.q >= 0 ? "+" : "") + search.q.toFixed(3) : "—";
+  for (const entry of (search ? search.policy : [])) {
+    const tr = document.createElement("tr");
+    if (entry.label === game.labels[ply]) tr.className = "pick";
+    for (const text of [entry.label, (100 * entry.p).toFixed(1) + "%"]) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  }
+  $("train-note").textContent = ply < review.plies
+    ? "Search value is from the point of view of the player to move, and the shares are the"
+      + " visit counts this position was trained on."
+    : (review.complete
+        ? "The final position, and the outcome the whole game was trained against."
+        : "As far as the record goes. Self play never samples the position after the last"
+          + " move, and that move could not be recovered from the walls it left behind.");
+}
+
+function renderPanel() {
+  $("slot1").classList.toggle("active", !!state && state.to_move === 1 && !over());
+  $("slot2").classList.toggle("active", !!state && state.to_move === 2 && !over());
+  for (const slot of [1, 2]) {
+    const ai = kind(slot) === "ai";
+    document.querySelectorAll(".ai" + slot).forEach(r => r.style.display = ai ? "" : "none");
+    $("preset" + slot).style.display = ai ? "" : "none";
+    const chip = $("who" + slot);
+    const brain = ai ? brainOf(roleOf(slot), String(slot)) : { text: "human", bad: false, net: false };
+    chip.textContent = brain.text;
+    chip.className = "chip brain" + (brain.bad ? " bad" : brain.net ? " net" : "");
+  }
+  const analysis = brainOf("an", "A");
+  $("chipA").textContent = roles.an
+    ? "#" + roles.an.id + " · " + analysis.text
+    : ($("analyse").checked ? "starting…" : "off");
+  $("chipA").className = "right chip brain" + (roles.an && analysis.bad ? " bad" : "");
+  renderHeadRows();
+  renderTurn();
+  renderReview();
+  renderMoves();
+  renderEval();
+  renderFull();
+  const live = liveEngines().length;
+  $("engine-count").textContent = live === 1 ? "1 engine running" : live + " engines running";
+
+  $("nav-ply").textContent = game.cursor + " / " + game.moves.length;
+  for (const [id, ply] of [["nav-first", 0], ["nav-prev", game.cursor - 1],
+                           ["nav-next", game.cursor + 1], ["nav-last", game.moves.length]]) {
+    $(id).disabled = busy || ply === game.cursor || ply < 0 || ply > game.moves.length;
+  }
+  $("btn-load").disabled = busy;
+  $("btn-train").disabled = busy;
+  $("btn-train-again").disabled = busy;
+
+  if (state) {
+    paintWalls($("chip1"), state.walls[0]);
+    paintWalls($("chip2"), state.walls[1]);
+    $("btn-undo").disabled = game.cursor === 0 || busy;
+    $("btn-play").disabled = over() || busy || kind(state.to_move) !== "ai";
+  }
+}
+
+// ---------------------------------------------------------------- predictions
+
+// The auxiliary heads say what the network expects the rest of the game to look
+// like: which squares each pawn will walk over, which walls will still be
+// standing, and by how many steps it thinks it wins. Each one has a slider of
+// its own so several can be laid over the board at once and weighed against
+// each other; at zero a layer is simply not drawn. Drawn under the visit
+// overlay so both can be read together.
+const HEADS = ["walk_mover", "walk_other", "wall_h", "wall_v"];
+let heads = null;
+let headsPly = -1;
+
+const headGain = key => +$("head-" + key).value / 100;
+const headsWanted = () => HEADS.some(key => headGain(key) > 0);
+const freshHeads = () => !!(heads && state && heads.at === state.plies);
+// The pawn layers are painted in the colour of the player they belong to, and
+// which player is the mover changes with the turn.
+function headColour(key) {
+  const moverIsOne = freshHeads() ? heads.mover === 1 : !state || state.to_move === 1;
+  if (key === "walk_mover") return moverIsOne ? "76,154,255" : "255,122,89";
+  if (key === "walk_other") return moverIsOne ? "255,122,89" : "76,154,255";
+  return "226,176,74";
+}
+
+function renderHeadRows() {
+  const analysing = $("analyse").checked;
+  const live = roles.an && roles.an.describe;
+  // Only a network has heads. The heuristic answers the question with an error,
+  // which as a silent empty board is indistinguishable from a broken slider.
+  const usable = !analysing || !live || live.indexOf("network") === 0;
+  for (const row of document.querySelectorAll(".head-row")) {
+    const key = row.dataset.head;
+    const gain = headGain(key);
+    row.classList.toggle("on", gain > 0);
+    row.classList.toggle("off", !usable);
+    row.querySelector("input").disabled = !usable;
+    row.querySelector("em").textContent = gain > 0 ? Math.round(gain * 100) + "%" : "off";
+    row.querySelector("i.sw").style.background = "rgb(" + headColour(key) + ")";
+  }
+  if (!analysing) $("headNote").textContent = "—";
+  else if (!usable) $("headNote").textContent = "the heuristic predicts nothing, switch the analysis brain to Network";
+  else if (!freshHeads()) $("headNote").textContent = headsWanted() ? "…" : "—";
+}
+
+async function refreshHeads() {
+  if (!headsWanted() || !roles.an) {
+    heads = null;
+    renderHeadRows();
+    return;
+  }
+  const asked = state ? state.plies : -1;
+  try {
+    const answer = await engCmd("an", "heads");
+    // Stamped with the position it was asked about. A reply that arrives after
+    // the board has moved on belongs to the old position and is not drawn.
+    heads = answer.ok ? Object.assign(answer, { at: asked }) : null;
+  } catch (problem) {
+    heads = null;
+  }
+  if (freshHeads()) {
+    $("headNote").textContent = (heads.margin >= 0 ? "+" : "") + heads.margin.toFixed(1) +
+      " steps for player " + heads.mover;
+  }
+  renderHeadRows();
+}
+
+function renderHeads() {
+  for (const key of HEADS) {
+    const gain = headGain(key), map = heads[key];
+    if (!gain || !map) continue;
+    const walls = key.indexOf("wall") === 0;
+    const vertical = key === "wall_v";
+    const colour = headColour(key);
+    for (let cell = 0; cell < 81; cell++) {
+      const weight = map[cell] * gain;
+      if (weight < 0.02) continue;
+      const x = cell % 9, y = Math.floor(cell / 9);
+      // deco, or these rectangles sit over the squares and eat the click meant
+      // for the cell underneath.
+      if (walls) {
+        if (x > 7 || y > 7) continue;        // wall slots live on the inner grid
+        const box = vertical
+          ? { x: sx(x) + C, y: sy(y + 1), width: G, height: 2 * C + G }
+          : { x: sx(x), y: sy(y) - G, width: 2 * C + G, height: G };
+        svg.appendChild(deco("rect", Object.assign(box,
+          { fill: "rgb(" + colour + ")", opacity: Math.min(0.9, weight).toFixed(3), rx: 2 })));
+      } else {
+        svg.appendChild(deco("rect", { x: sx(x) + 4, y: sy(y) + 4, width: C - 8, height: C - 8,
+          fill: "rgb(" + colour + ")", opacity: Math.min(0.55, weight).toFixed(3), rx: 4 }));
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------- flow
+
+function redraw() { render(); renderPanel(); }
+
+// Everything that talks to an engine goes through here. The board is drawn
+// again in the finally block, so its click handlers always come back, whether
+// the action worked, failed or threw half way through.
+async function withBusy(work) {
+  if (busy) return false;
+  setBusy(true);
+  redraw();
+  let ok = true;
+  try {
+    await work();
+  } catch (e) {
+    ok = false;
+    say(e.message, true);
+    auto = false;
+    $("btn-auto").textContent = "Auto-play";
+    await resyncAll();
+  } finally {
+    setBusy(false);
+    redraw();
+  }
+  return ok;
+}
+
+async function refresh() {
+  state = await sup("state");
+  if (over()) {
+    auto = false;
+    $("btn-auto").textContent = "Auto-play";
+    say(state.outcome === 0 ? "Draw by repetition." : "Player " + state.outcome + " wins.");
+  }
+  redraw();
+}
+
+async function poll() {
+  if (!roles.an || busy || !$("analyse").checked) return;
+  try {
+    const res = await fetch(roles.an.url + "/status");
+    snap = await res.json();
+    // The heads only change when the position does, and asking costs a forward
+    // pass, so follow the ply rather than the poll.
+    if (headsWanted() && state && headsPly !== state.plies) {
+      headsPly = state.plies;
+      await refreshHeads();
+    }
+    redraw();
+  } catch (e) { /* keep the last reading, the next poll will catch up */ }
+}
+
+// The supervisor owns the position, so check on it now and then. This also
+// picks up a move made from another client or a script, and heals a board that
+// somehow ended up drawn without its handlers.
+async function tick() {
+  if (busy || fullRunning) return;
+  let fresh;
+  try { fresh = await sup("state"); } catch (e) { return; }
+  const history = fresh.history || [];
+  const agreed = history.length === game.cursor
+    && history.every((mv, i) => mv === game.moves[i]);
+  if (!agreed) {
+    // Something moved the board without going through this page. Whatever the
+    // supervisor holds is the game now, and every engine is put back on it.
+    await withBusy(async () => {
+      const rebuilt = await reconcile(fresh);
+      await syncCursor();
+      if (rebuilt) say("The board moved to a game this page was not holding, so it was read back off the supervisor.");
+    });
+    return;
+  }
+  const moved = !state || fresh.plies !== state.plies || fresh.to_move !== state.to_move
+    || fresh.outcome !== state.outcome;
+  const shouldClick = kind(fresh.to_move) === "human" && fresh.outcome === null;
+  const target = svg.querySelector("rect.target");
+  const canClick = !!(target && target.onclick);
+  state = fresh;
+  if (moved || (shouldClick && !canClick)) redraw();
+}
+
+async function setAnalysis(on) {
+  await withBusy(async () => {
+    if (on) {
+      renderPanel();
+      await ensureEngine("an");
+      await engCmd("an", "analyze on");
+    } else {
+      snap = null;
+      heads = null;
+      await stopEngine("an");
+    }
+  });
+}
+
+async function play(index) {
+  const plyBefore = game.cursor;
+  let played = null;
+  await withBusy(async () => {
+    const at = state;
+    const found = (at.legal || []).find(m => m.i === index);
+    if (!found) throw new Error("that move is not legal in this position");
+    played = found.label;
+    snap = null;                       // the old read-out belongs to the old position
+    await broadcast("play " + index);
+    // Playing on from the middle of a loaded game leaves the rest of it behind,
+    // which is what a board that can be analysed and then played from means.
+    const dropped = game.moves.length - game.cursor;
+    truncate(game.cursor);
+    game.names.push(nameOf(found.label, at));
+    game.labels.push(found.label);
+    game.moves.push(index);
+    game.cursor = game.moves.length;
+    dropReview("The self play record no longer matches the board, so it was closed.");
+    if (dropped > 0) {
+      say("Carried on from ply " + (game.cursor - 1) + ", so the " + dropped
+          + (dropped === 1 ? " move" : " moves") + " after it went.");
+    }
+    await refresh();
+    if (roles.an && $("analyse").checked) await engCmd("an", "analyze on");
+  });
+  if (played) judgePuzzleMove(played, plyBefore);
+  scheduleAi();
+}
+
+async function aiMove() {
+  if (busy || !state || over()) return;
+  const side = state.to_move;
+  if (kind(side) !== "ai") { say("Player " + side + " is human."); return; }
+  await withBusy(async () => {
+    const role = roleOf(side);
+    say("Player " + side + " thinking…");
+    await ensureEngine(role);
+    await applySettings(role, false);
+    snap = null;
+    const at = state;
+    const res = await engCmd(role, "genmove");
+    await broadcast("play " + res.move, roles[role].url);
+    truncate(game.cursor);
+    game.names.push(nameOf(res.label, at));
+    game.labels.push(res.label);
+    game.moves.push(res.move);
+    game.cursor = game.moves.length;
+    dropReview("The self play record no longer matches the board, so it was closed.");
+    say("Player " + side + " played " + res.label + " · " +
+        res.simulations.toLocaleString() + " sims in " + res.ms + " ms · value " + res.value.toFixed(3));
+    await refresh();
+    if (roles.an && $("analyse").checked) await engCmd("an", "analyze on");
+  });
+  scheduleAi();
+}
+
+// An agent answers a human by itself, which is what playing against it means.
+// Two agents only trade moves on their own once auto play is switched on.
+// Stepping about inside a game that is already recorded is not playing it, so
+// nothing answers until the cursor is back at the end.
+function scheduleAi() {
+  if (busy || fullRunning || !state || over()) return;
+  if (game.cursor < game.moves.length) return;
+  if (kind(state.to_move) !== "ai") return;
+  const answering = kind(1) === "human" || kind(2) === "human";
+  if (auto || answering) setTimeout(aiMove, 60);
+}
+
+// ---------------------------------------------------------------- puzzles
+
+// A puzzle is a position with exactly k winning moves where everything else
+// loses, that the plain heuristic could not solve. The file carries the whole
+// answer -- the winning labels, every move's value, and what each engine
+// replied -- so judging a guess is a local lookup and costs no search. Only
+// "play it out" hands anything to an engine.
+const puz = { all: [], at: -1, live: null, answered: false, guesses: [] };
+
+// While a puzzle is open the list collapses, so the card shows the position
+// being asked about and nothing else. The card itself no longer moves: the
+// layout is one screen, so the board and this panel are both on it whatever is
+// open, and shuffling the node between columns only ever fought the grid.
+function puzzleDifficultyChip(kind) {
+  const colour = { medium: "var(--p1)", hard: "#d08b28", insane: "#c0392b" }[kind] || "";
+  return '<b style="color:' + colour + '">' + (kind || "unrated") + "</b>";
+}
+
+function puzzleFocus(open) {
+  $("puz-index").style.display = open ? "none" : (puz.all.length ? "" : "none");
+}
+
+// The list comes from a manifest, not from a command.
+//
+// The site this ships to cannot list a directory, so a page has no way to find
+// out what puzzles exist unless something writes the answer down. That is
+// `puzzles/manifest.json`, which train/publish_puzzles.py generates and which
+// carries everything the table draws -- difficulty, ply, side, how many moves
+// win. Opening a puzzle then fetches that one file for the rest.
+//
+// The `puzzles` command remains for the development server, which reads the
+// JSONL off the disk; if there is no manifest this falls back to it, so the
+// same page works either way.
+const PUZZLE_DIR = "puzzles/";
+
+async function loadPuzzles(quiet) {
+  await withBusy(async () => {
+    let listed = null, from = "";
+    try {
+      const answer = await fetch(PUZZLE_DIR + "manifest.json", { cache: "no-store" });
+      if (answer.ok) {
+        const body = await answer.json();
+        listed = body.puzzles || [];
+        from = "manifest";
+      }
+    } catch (e) { /* no manifest here; try the engine below */ }
+
+    if (listed === null) {
+      let answer;
+      try {
+        answer = await sup("puzzles");
+      } catch (e) {
+        if (quiet) { $("puz-src").textContent = "no puzzles"; return; }
+        throw e;
+      }
+      if (!answer.ok) {
+        if (quiet) { $("puz-src").textContent = "no puzzles"; return; }
+        throw new Error(answer.error || "could not read the puzzle file");
+      }
+      listed = answer.puzzles || [];
+      from = answer.file || "file";
+    }
+
+    puz.all = listed;
+    $("puz-src").textContent = from + " · " + puz.all.length;
+    if (!puz.all.length) {
+      $("puz-empty").style.display = "";
+      $("puz-index").style.display = "none";
+      if (!quiet) say("No puzzles yet.");
+      return;
+    }
+    $("puz-empty").style.display = "none";
+    $("puz-index").style.display = "";
+    renderPuzzleList();
+    if (!quiet) say(puz.all.length + " puzzle(s) from " + from);
+  });
+}
+
+// A manifest row is a summary; the puzzle itself is a second file. Fetched once
+// and kept, so stepping back to a puzzle already opened costs nothing.
+async function puzzleRecord(i) {
+  const entry = puz.all[i];
+  if (!entry) return null;
+  if (entry.values) return entry;                 // the whole record already
+  if (!entry.file) return entry;
+  const answer = await fetch(PUZZLE_DIR + entry.file, { cache: "force-cache" });
+  if (!answer.ok) throw new Error("cannot read " + entry.file);
+  const full = await answer.json();
+  // Keep the summary's own fields: the manifest is the thing the list agrees
+  // with, and a record that disagreed would redraw the row under the reader.
+  puz.all[i] = Object.assign({}, full, {
+    file: entry.file, difficulty: entry.difficulty,
+  });
+  return puz.all[i];
+}
+
+function renderPuzzleList() {
+  const want = $("puz-filter").value;
+  const body = $("puz-list").querySelector("tbody");
+  body.innerHTML = "";
+  puz.all.forEach((entry, i) => {
+    if (want && entry.difficulty !== want) return;
+    // el() is the board's SVG helper -- an SVG <tr> is invisible inside an
+    // HTML table, which is a count with no rows under it.
+    const row = document.createElement("tr");
+    row.style.cursor = "pointer";
+    if (i === puz.at) row.style.outline = "1px solid var(--p1)";
+    const side = entry.to_move === 1 ? "Player 1" : "Player 2";
+    row.innerHTML = "<td>" + (i + 1) + "</td><td>" + puzzleDifficultyChip(entry.difficulty)
+      + "</td><td>" + entry.ply + "</td><td>" + side + "</td>";
+    row.onclick = () => { if (!busy) openPuzzle(i); };
+    body.appendChild(row);
+  });
+  if (!body.children.length) {
+    body.innerHTML = '<tr><td colspan="4" class="note">none of that difficulty</td></tr>';
+  }
+}
+
+// The record stores the line in the same notation the loader takes and the ply
+// it happened at, so putting one on the board is the ordinary game load with
+// the cursor parked on the position -- there is no second path here.
+async function openPuzzle(i) {
+  const entry = await puzzleRecord(i);
+  if (!entry) return;
+  puz.at = i;
+  puz.live = entry;
+  puz.answered = false;
+  puz.guesses = [];
+  await loadGame(entry.line.slice(0, entry.ply), "puzzle " + (i + 1), entry.ply);
+  // Whoever is to move is the one being asked, so that seat becomes human and
+  // the board stops answering until "play it out" says otherwise.
+  $("kind" + entry.to_move).value = "human";
+  $("kind" + (entry.to_move === 1 ? 2 : 1)).value = "human";
+  // Auto play left on from before would answer the moment the position lands,
+  // which is the one thing a puzzle must not do.
+  auto = false;
+  $("btn-auto").textContent = "Auto-play";
+  await refresh();
+  puzzleFocus(true);
+  showPuzzle();
+  renderPuzzleList();
+}
+
+// kind is "right", "wrong" or "told"; anything else clears it.
+function setVerdict(kind, headline, sub) {
+  const box = $("puz-verdict");
+  if (!kind) { box.className = "verdict"; box.innerHTML = ""; return; }
+  const mark = kind === "right" ? "&#10004;" : kind === "wrong" ? "&#10008;" : "&#9432;";
+  box.className = "verdict on " + kind;
+  box.innerHTML = '<span class="mark">' + mark + "</span>" + headline
+    + (sub ? '<span class="sub">' + sub + "</span>" : "");
+}
+
+function showPuzzle() {
+  const entry = puz.live;
+  if (!entry) return;
+  $("puz-live").style.display = "";
+  $("puz-n").textContent = (puz.at + 1) + " of " + puz.all.length;
+  $("puz-diff").innerHTML = puzzleDifficultyChip(entry.difficulty);
+  $("puz-side").textContent = "Player " + entry.to_move;
+  const k = entry.winning.length;
+  $("puz-k").textContent = k;
+  $("puz-ask").innerHTML =
+    "Player " + entry.to_move + " to move. <b>" + (k === 1 ? "One move wins" : k + " moves win")
+    + "</b> and every other legal move loses. Play it on the board.";
+  setVerdict(null);
+  const s = entry.settings || {};
+  const solvers = entry.solvers || {};
+  const said = Object.keys(solvers).map(n => n + " played " + (solvers[n] || "nothing")).join(", ");
+  $("puz-provenance").innerHTML =
+    "Found with <b>" + (s.weights || "?") + "</b> at " + (s.verify_sims || "?")
+    + " simulations a move. " + said + "."
+    + " <i>A different brain loaded above can disagree with this answer.</i>";
+}
+
+// Called after a human move. The winning set is in the record, so this is a
+// lookup rather than a search.
+function judgePuzzleMove(label, plyBefore) {
+  const entry = puz.live;
+  if (!entry || puz.answered) return;
+  if (plyBefore !== entry.ply) return;              // not the puzzle position
+  const right = entry.winning.includes(label);
+  puz.guesses.push(label);
+  const value = (entry.values || {})[label];
+  const worth = value === undefined ? "unknown"
+    : (value > 0 ? "+" : "") + value.toFixed(3);
+  if (right) {
+    puz.answered = true;
+    setVerdict("right", "Correct &mdash; " + label + " wins.",
+               "Value " + worth + ". Play it out against the network, or take the next one.");
+  } else {
+    setVerdict("wrong", "Wrong &mdash; " + label + " loses.",
+               "Value " + worth + ". Press Try again to set the position back up; "
+               + "playing on from here carries the mistake with it.");
+  }
+}
+
+// Playing it out is a challenge to the answer, so the engine always takes the
+// side the answer says is winning and you get the other one.
+//
+//   after the winning move   you are saying "I do not believe that wins", so
+//                            the engine takes the solver's seat and wins it
+//   after a losing move      you are saying "I think that was fine really", so
+//                            the engine takes the opponent's seat and punishes it
+//   before any move          the engine takes the solver's seat and shows it
+//
+// One rule underneath all three: whoever is winning in the position now on the
+// board is the engine, and you try to prove it wrong.
+function puzzlePlayoutSides(entry, guesses) {
+  const solver = entry.to_move;
+  const other = solver === 1 ? 2 : 1;
+  const tried = guesses.length ? guesses[guesses.length - 1] : null;
+  const blundered = tried !== null && !entry.winning.includes(tried);
+  return blundered ? { engine: other, you: solver, blundered }
+                   : { engine: solver, you: other, blundered };
+}
+
+async function puzzlePlayout() {
+  const entry = puz.live;
+  if (!entry) return;
+  const side = puzzlePlayoutSides(entry, puz.guesses);
+  $("kind" + side.engine).value = "ai";
+  $("kind" + side.you).value = "human";
+  await refresh();
+  const why = side.blundered
+    ? "You kept Player " + side.you + ", the side that just went wrong. The engine "
+      + "has Player " + side.engine + " and will show you why the move loses."
+    : puz.guesses.length
+      ? "The engine has taken Player " + side.engine + ", the side that just played the "
+        + "winning move, and will try to win it against you as Player " + side.you + "."
+      : "The engine has taken Player " + side.engine + " and will play the answer out; "
+        + "you are Player " + side.you + ".";
+  say(why);
+  setVerdict("told", side.blundered ? "Defend it if you can." : "Prove it wrong if you can.", why);
+  scheduleAi();
+}
+
+async function puzzleRetry() {
+  if (!puz.live) return;
+  await openPuzzle(puz.at);
+}
+
+function puzzleShow() {
+  const entry = puz.live;
+  if (!entry) return;
+  puz.answered = true;
+  const named = entry.winning.map((label, i) =>
+    label + " (" + entry.winning_names[i] + ", "
+    + (entry.winning_values[i] > 0 ? "+" : "") + entry.winning_values[i].toFixed(3) + ")");
+  setVerdict("told", "The answer is " + named.join(" and ") + ".",
+             "Every other move is below " + entry.runner_up.toFixed(3)
+             + ", the best of them.");
+}
+
+function puzzleExit() {
+  puz.live = null;
+  puz.at = -1;
+  $("puz-live").style.display = "none";
+  setVerdict(null);
+  puzzleFocus(false);
+  renderPuzzleList();
+}
+
+$("btn-puz-load").onclick = () => loadPuzzles().catch(e => say(e.message, true));
+$("btn-puz-retry-load").onclick = () => loadPuzzles().catch(e => say(e.message, true));
+$("puz-filter").onchange = renderPuzzleList;
+$("btn-puz-playout").onclick = () => puzzlePlayout().catch(e => say(e.message, true));
+$("btn-puz-show").onclick = puzzleShow;
+$("btn-puz-retry").onclick = () => puzzleRetry().catch(e => say(e.message, true));
+$("btn-puz-next").onclick = () => {
+  if (puz.at + 1 < puz.all.length) openPuzzle(puz.at + 1).catch(e => say(e.message, true));
+  else say("That was the last puzzle in the file.");
+};
+$("btn-puz-exit").onclick = puzzleExit;
+
+// ---------------------------------------------------------------- wiring
+
+function applyPreset(which, name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  if (which === "A") {
+    $("thrA").value = p.threads; $("arenaA").value = p.arena; $("sliceA").value = p.slice;
+    $("explA").value = p.exploration;
+  } else {
+    $("time" + which).value = p.time; $("sims" + which).value = p.sims;
+    $("thr" + which).value = p.threads; $("arena" + which).value = p.arena;
+    $("expl" + which).value = p.exploration;
+  }
+  pushSettings(which);
+}
+
+function pushSettings(which) {
+  const role = which === "A" ? "an" : roleOf(+which);
+  if (!roles[role] || fullRunning) return;
+  applySettings(role, true)
+    .then(() => { if (role === "an" && $("analyse").checked) return engCmd("an", "analyze on"); })
+    .catch(e => say(e.message, true));
+}
+
+for (const which of ["1", "2", "A"]) {
+  $("preset" + which).onchange = () => applyPreset(which, $("preset" + which).value);
+  const fields = which === "A" ? ["thrA", "arenaA", "sliceA", "explA"]
+                               : ["time" + which, "sims" + which, "thr" + which, "arena" + which, "expl" + which];
+  const explore = which === "A" ? "explA" : "expl" + which;
+  for (const id of fields) $(id).onchange = () => {
+    // Zero would leave the selection rule with nothing but Q, so the search
+    // would follow whichever child it visited first and never widen again.
+    if (+$(explore).value < 0.25) $(explore).value = 0.25;
+    $("preset" + which).value = "custom";
+    pushSettings(which);
+  };
+  for (const id of ["brain" + which, "wts" + which]) $(id).onchange = () => {
+    const role = which === "A" ? "an" : roleOf(+which);
+    if (roles[role] && !fullRunning) pushBrain(role).catch(e => say(e.message, true));
+  };
+}
+
+for (const slot of [1, 2]) $("kind" + slot).onchange = async () => {
+  const role = roleOf(slot);
+  await withBusy(async () => {
+    if (kind(slot) === "ai") await ensureEngine(role);
+    else await stopEngine(role);
+  });
+  scheduleAi();
+};
+
+$("analyse").onchange = () => {
+  // The full analysis is using that engine and puts it back the way this switch
+  // asks for it when it is done, so the switch is left to be read then.
+  if (fullRunning) { say("The full analysis has the analysis engine; the switch takes effect when it finishes."); return; }
+  setAnalysis($("analyse").checked);
+};
+$("overlay").onchange = redraw;
+for (const key of HEADS) $("head-" + key).oninput = () => {
+  renderHeadRows();
+  // The first layer switched on has nothing to draw yet, so fetch before drawing
+  if (headsWanted() && !heads && !busy) { headsPly = -1; refreshHeads().then(redraw); }
+  else redraw();
+};
+$("topn").oninput = redraw;
+
+$("btn-play").onclick = aiMove;
+$("btn-undo").onclick = async () => {
+  // In the middle of a game this is one step back, which takes nothing away.
+  // At the end of one it is what it says: the last move goes.
+  if (game.cursor === 0) return;
+  if (game.cursor < game.moves.length) return step(game.cursor - 1);
+  await withBusy(async () => {
+    dropReview("The self play record no longer matches the board, so it was closed.");
+    truncate(game.cursor - 1);
+    game.cursor = game.moves.length;
+    await syncCursor();
+    say("Took a move back.");
+  });
+  // No automatic answer here, or taking a move back would hand it straight back
+};
+$("btn-new").onclick = async () => {
+  auto = false;
+  $("btn-auto").textContent = "Auto-play";
+  await withBusy(async () => {
+    dropReview();
+    full = null;
+    game = { moves: [], labels: [], names: [], cursor: 0 };
+    $("load-src").textContent = "";
+    snap = null;
+    heads = null;
+    await broadcast("newgame");
+    await refresh();
+    say("New game.");
+    if (roles.an && $("analyse").checked) await engCmd("an", "analyze on");
+  });
+  scheduleAi();
+};
+$("btn-auto").onclick = () => {
+  auto = !auto;
+  $("btn-auto").textContent = auto ? "Stop" : "Auto-play";
+  if (auto) scheduleAi();
+};
+
+$("btn-load").onclick = loadTyped;
+$("load-input").onkeydown = event => {
+  if (event.key === "Enter") { event.preventDefault(); loadTyped(); }
+};
+$("btn-train").onclick = loadTrainingGame;
+$("btn-train-again").onclick = loadTrainingGame;
+$("btn-train-exit").onclick = () => {
+  dropReview("Record closed. The game itself is still on the board.");
+  redraw();
+};
+$("btn-copy").onclick = async () => {
+  if (!game.names.length) { say("There is no game to copy yet.", true); return; }
+  const text = game.names.join(",");
+  try {
+    await navigator.clipboard.writeText(text);
+    say("Copied " + game.names.length + " moves.");
+  } catch (problem) {
+    // No clipboard from a page served over plain http to anything but
+    // localhost. Putting the moves where they can be selected is the fallback.
+    $("load-input").value = text;
+    $("load-input").select();
+    say("The browser would not take the clipboard, so the moves are in the box above.");
+  }
+};
+
+$("btn-full").onclick = runFullAnalysis;
+$("btn-full-stop").onclick = () => {
+  fullStop = true;
+  say("Stopping after this position…");
+};
+
+$("nav-first").onclick = () => step(0);
+$("nav-prev").onclick = () => step(game.cursor - 1);
+$("nav-next").onclick = () => step(game.cursor + 1);
+$("nav-last").onclick = () => step(game.moves.length);
+document.addEventListener("keydown", event => {
+  if (busy || !game.moves.length || event.metaKey || event.ctrlKey || event.altKey) return;
+  const on = document.activeElement;
+  if (on && /^(INPUT|SELECT|TEXTAREA)$/.test(on.tagName)) return;
+  if (event.key === "ArrowLeft") { event.preventDefault(); step(game.cursor - 1); }
+  else if (event.key === "ArrowRight") { event.preventDefault(); step(game.cursor + 1); }
+  else if (event.key === "Home") { event.preventDefault(); step(0); }
+  else if (event.key === "End") { event.preventDefault(); step(game.moves.length); }
+});
+window.addEventListener("beforeunload", () => {
+  if (!WASM()) navigator.sendBeacon(SUP + "/killall", "");
+});
+
+async function boot() {
+  // A reload leaves the engines of the previous page behind, so clear them out
+  try { if (!WASM()) await post(SUP, "/killall"); } catch (e) { /* nothing was running */ }
+  redraw();
+  await withBusy(async () => {
+    // The supervisor keeps the game across a reload, so read it back rather
+    // than start a page that says nothing is on the board.
+    const fresh = await sup("state");
+    await reconcile(fresh);
+    await refresh();
+    for (const slot of [1, 2]) if (kind(slot) === "ai") await ensureEngine(roleOf(slot));
+    if ($("analyse").checked) { await ensureEngine("an"); await engCmd("an", "analyze on"); }
+  });
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(poll, 300);
+  if (tickTimer) clearInterval(tickTimer);
+  tickTimer = setInterval(tick, 1000);
+  // Read the puzzle file straight away. Making this wait for a button press
+  // means a panel that is full of puzzles is indistinguishable from one that
+  // has none, which is exactly the wrong way round.
+  try { await loadPuzzles(true); } catch (e) { /* no file yet is the normal case */ }
+  scheduleAi();
+}
+// app.js is fetching and instantiating the module while this file parses, so
+// wait for it before the first command goes out. Without a module the promise
+// still resolves and the page falls back to the socket server.
+(window.DAEDALUS_BOOT || Promise.resolve()).then(boot);
+</script>
+</body>
+</html>

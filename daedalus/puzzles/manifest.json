@@ -1,0 +1,1479 @@
+{
+ "puzzles": [
+  {
+   "file": "p2cc3f4717462.json",
+   "difficulty": "hard",
+   "ply": 10,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 108,
+   "names": [
+    "f3"
+   ]
+  },
+  {
+   "file": "pe410e04776d3.json",
+   "difficulty": "hard",
+   "ply": 10,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 113,
+   "names": [
+    "d6h"
+   ]
+  },
+  {
+   "file": "pdad1a2d973ac.json",
+   "difficulty": "hard",
+   "ply": 14,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 108,
+   "names": [
+    "f4h"
+   ]
+  },
+  {
+   "file": "peba9657fb7ec.json",
+   "difficulty": "hard",
+   "ply": 14,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 105,
+   "names": [
+    "e6h"
+   ]
+  },
+  {
+   "file": "pfb47525afd23.json",
+   "difficulty": "hard",
+   "ply": 14,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 105,
+   "names": [
+    "h6v"
+   ]
+  },
+  {
+   "file": "pe81ff9f5eada.json",
+   "difficulty": "hard",
+   "ply": 14,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 110,
+   "names": [
+    "c1v"
+   ]
+  },
+  {
+   "file": "p1802b8183bc9.json",
+   "difficulty": "hard",
+   "ply": 16,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 105,
+   "names": [
+    "e5v"
+   ]
+  },
+  {
+   "file": "p317306566a20.json",
+   "difficulty": "hard",
+   "ply": 16,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 105,
+   "names": [
+    "d5v"
+   ]
+  },
+  {
+   "file": "p2680a24e80fd.json",
+   "difficulty": "hard",
+   "ply": 17,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 97,
+   "names": [
+    "g3v"
+   ]
+  },
+  {
+   "file": "p5f3756e6e529.json",
+   "difficulty": "hard",
+   "ply": 18,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 96,
+   "names": [
+    "c1v"
+   ]
+  },
+  {
+   "file": "p0466fbab7059.json",
+   "difficulty": "hard",
+   "ply": 19,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 93,
+   "names": [
+    "e4h"
+   ]
+  },
+  {
+   "file": "p87ad68561cba.json",
+   "difficulty": "hard",
+   "ply": 19,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 100,
+   "names": [
+    "c8"
+   ]
+  },
+  {
+   "file": "p57538687d449.json",
+   "difficulty": "hard",
+   "ply": 20,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 100,
+   "names": [
+    "d5v"
+   ]
+  },
+  {
+   "file": "p2500c36c6b2d.json",
+   "difficulty": "hard",
+   "ply": 20,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 92,
+   "names": [
+    "e6v"
+   ]
+  },
+  {
+   "file": "p3710bbd1e1a9.json",
+   "difficulty": "hard",
+   "ply": 20,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 99,
+   "names": [
+    "d7v"
+   ]
+  },
+  {
+   "file": "p9cb46ff3b6bd.json",
+   "difficulty": "hard",
+   "ply": 21,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 95,
+   "names": [
+    "b8"
+   ]
+  },
+  {
+   "file": "pd5a6fc5d8656.json",
+   "difficulty": "hard",
+   "ply": 22,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 72,
+   "names": [
+    "e5"
+   ]
+  },
+  {
+   "file": "p195caf0f285a.json",
+   "difficulty": "hard",
+   "ply": 22,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 93,
+   "names": [
+    "f3"
+   ]
+  },
+  {
+   "file": "p892e014e4bc2.json",
+   "difficulty": "hard",
+   "ply": 22,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 101,
+   "names": [
+    "b3h"
+   ]
+  },
+  {
+   "file": "p975ac34cd84b.json",
+   "difficulty": "hard",
+   "ply": 24,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 89,
+   "names": [
+    "c3"
+   ]
+  },
+  {
+   "file": "pc13bbd4c0b63.json",
+   "difficulty": "hard",
+   "ply": 25,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 83,
+   "names": [
+    "e7"
+   ]
+  },
+  {
+   "file": "p28f8d8fe6313.json",
+   "difficulty": "hard",
+   "ply": 25,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 92,
+   "names": [
+    "c5"
+   ]
+  },
+  {
+   "file": "p2ad06c8f087d.json",
+   "difficulty": "hard",
+   "ply": 26,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 78,
+   "names": [
+    "g5"
+   ]
+  },
+  {
+   "file": "p6b34937e9dd7.json",
+   "difficulty": "hard",
+   "ply": 28,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 97,
+   "names": [
+    "g3"
+   ]
+  },
+  {
+   "file": "p99bc5e29f1a8.json",
+   "difficulty": "hard",
+   "ply": 28,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 92,
+   "names": [
+    "g4"
+   ]
+  },
+  {
+   "file": "p0a1342b574df.json",
+   "difficulty": "hard",
+   "ply": 30,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 74,
+   "names": [
+    "h4"
+   ]
+  },
+  {
+   "file": "p561c225b7603.json",
+   "difficulty": "hard",
+   "ply": 32,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 81,
+   "names": [
+    "e3"
+   ]
+  },
+  {
+   "file": "pb012d41c804f.json",
+   "difficulty": "hard",
+   "ply": 34,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 79,
+   "names": [
+    "g7"
+   ]
+  },
+  {
+   "file": "p4ae3c5cb574c.json",
+   "difficulty": "hard",
+   "ply": 38,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 74,
+   "names": [
+    "b7v"
+   ]
+  },
+  {
+   "file": "p01ac97c70d7c.json",
+   "difficulty": "hard",
+   "ply": 44,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 72,
+   "names": [
+    "b5v"
+   ]
+  },
+  {
+   "file": "pcde0a9bf6d71.json",
+   "difficulty": "insane",
+   "ply": 25,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 85,
+   "names": [
+    "a6h"
+   ]
+  },
+  {
+   "file": "p1e2cf74d2702.json",
+   "difficulty": "medium",
+   "ply": 9,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 114,
+   "names": [
+    "e7"
+   ]
+  },
+  {
+   "file": "pcceb118fc6fd.json",
+   "difficulty": "medium",
+   "ply": 9,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 116,
+   "names": [
+    "e7"
+   ]
+  },
+  {
+   "file": "pbc57b13b3b05.json",
+   "difficulty": "medium",
+   "ply": 10,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 104,
+   "names": [
+    "f3"
+   ]
+  },
+  {
+   "file": "p34fb61922908.json",
+   "difficulty": "medium",
+   "ply": 10,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 114,
+   "names": [
+    "e2"
+   ]
+  },
+  {
+   "file": "p3f6c2b0592ce.json",
+   "difficulty": "medium",
+   "ply": 12,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 108,
+   "names": [
+    "g3"
+   ]
+  },
+  {
+   "file": "p9867436fc234.json",
+   "difficulty": "medium",
+   "ply": 14,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 114,
+   "names": [
+    "c1v"
+   ]
+  },
+  {
+   "file": "pd8fb84ab980f.json",
+   "difficulty": "medium",
+   "ply": 14,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 111,
+   "names": [
+    "g7v"
+   ]
+  },
+  {
+   "file": "p7dc29d535bdf.json",
+   "difficulty": "medium",
+   "ply": 14,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 107,
+   "names": [
+    "e3h"
+   ]
+  },
+  {
+   "file": "p440af9788889.json",
+   "difficulty": "medium",
+   "ply": 16,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 102,
+   "names": [
+    "g5v"
+   ]
+  },
+  {
+   "file": "p699d0bde299c.json",
+   "difficulty": "medium",
+   "ply": 16,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 111,
+   "names": [
+    "d3v"
+   ]
+  },
+  {
+   "file": "p9a478f523443.json",
+   "difficulty": "medium",
+   "ply": 16,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 101,
+   "names": [
+    "d5h"
+   ]
+  },
+  {
+   "file": "pde36e8d7a6e5.json",
+   "difficulty": "medium",
+   "ply": 16,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 95,
+   "names": [
+    "f1"
+   ]
+  },
+  {
+   "file": "pc5d5b4dc29b4.json",
+   "difficulty": "medium",
+   "ply": 18,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 108,
+   "names": [
+    "e3"
+   ]
+  },
+  {
+   "file": "pa344e1d58910.json",
+   "difficulty": "medium",
+   "ply": 18,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 104,
+   "names": [
+    "h1"
+   ]
+  },
+  {
+   "file": "p63a6ef27f8de.json",
+   "difficulty": "medium",
+   "ply": 18,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 93,
+   "names": [
+    "h4v"
+   ]
+  },
+  {
+   "file": "ped171b71cfb3.json",
+   "difficulty": "medium",
+   "ply": 18,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 93,
+   "names": [
+    "c3"
+   ]
+  },
+  {
+   "file": "p712469ef4ff6.json",
+   "difficulty": "medium",
+   "ply": 18,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 98,
+   "names": [
+    "c5"
+   ]
+  },
+  {
+   "file": "pdbb1a1378f54.json",
+   "difficulty": "medium",
+   "ply": 20,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 98,
+   "names": [
+    "b6h"
+   ]
+  },
+  {
+   "file": "p207af8c9d8f7.json",
+   "difficulty": "medium",
+   "ply": 20,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 101,
+   "names": [
+    "b4"
+   ]
+  },
+  {
+   "file": "p654a4eb4f5b1.json",
+   "difficulty": "medium",
+   "ply": 20,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 93,
+   "names": [
+    "h3h"
+   ]
+  },
+  {
+   "file": "p3c9410dd409b.json",
+   "difficulty": "medium",
+   "ply": 20,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 97,
+   "names": [
+    "d4"
+   ]
+  },
+  {
+   "file": "p0cade9fb90ec.json",
+   "difficulty": "medium",
+   "ply": 20,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 95,
+   "names": [
+    "c5v"
+   ]
+  },
+  {
+   "file": "pbc4fa6d40329.json",
+   "difficulty": "medium",
+   "ply": 20,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 102,
+   "names": [
+    "c5h"
+   ]
+  },
+  {
+   "file": "p27855dcfcc50.json",
+   "difficulty": "medium",
+   "ply": 21,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 102,
+   "names": [
+    "h7"
+   ]
+  },
+  {
+   "file": "pca9488b18ac1.json",
+   "difficulty": "medium",
+   "ply": 22,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 94,
+   "names": [
+    "g2"
+   ]
+  },
+  {
+   "file": "pfadc59cb4480.json",
+   "difficulty": "medium",
+   "ply": 22,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 88,
+   "names": [
+    "g6v"
+   ]
+  },
+  {
+   "file": "pfa609f8d23b5.json",
+   "difficulty": "medium",
+   "ply": 22,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 93,
+   "names": [
+    "e2"
+   ]
+  },
+  {
+   "file": "p77a99c3640dc.json",
+   "difficulty": "medium",
+   "ply": 22,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 87,
+   "names": [
+    "i3"
+   ]
+  },
+  {
+   "file": "p9740e970ee45.json",
+   "difficulty": "medium",
+   "ply": 22,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 95,
+   "names": [
+    "c5"
+   ]
+  },
+  {
+   "file": "p0b60c7c3600c.json",
+   "difficulty": "medium",
+   "ply": 23,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 83,
+   "names": [
+    "d7"
+   ]
+  },
+  {
+   "file": "p779306a63338.json",
+   "difficulty": "medium",
+   "ply": 23,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 78,
+   "names": [
+    "d7"
+   ]
+  },
+  {
+   "file": "p803b6d08cce1.json",
+   "difficulty": "medium",
+   "ply": 23,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 86,
+   "names": [
+    "f8"
+   ]
+  },
+  {
+   "file": "p1234a1bb377f.json",
+   "difficulty": "medium",
+   "ply": 24,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 73,
+   "names": [
+    "d5"
+   ]
+  },
+  {
+   "file": "pb7e68c3dbb65.json",
+   "difficulty": "medium",
+   "ply": 24,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 73,
+   "names": [
+    "d5"
+   ]
+  },
+  {
+   "file": "p8e41e874d677.json",
+   "difficulty": "medium",
+   "ply": 24,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 99,
+   "names": [
+    "f7v"
+   ]
+  },
+  {
+   "file": "p63ae307f5324.json",
+   "difficulty": "medium",
+   "ply": 24,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 95,
+   "names": [
+    "e4h"
+   ]
+  },
+  {
+   "file": "p91abfc13c48c.json",
+   "difficulty": "medium",
+   "ply": 24,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 84,
+   "names": [
+    "e5v"
+   ]
+  },
+  {
+   "file": "pf000bce091c1.json",
+   "difficulty": "medium",
+   "ply": 24,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 75,
+   "names": [
+    "b3"
+   ]
+  },
+  {
+   "file": "p6b1675d18268.json",
+   "difficulty": "medium",
+   "ply": 24,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 98,
+   "names": [
+    "e1"
+   ]
+  },
+  {
+   "file": "p7b26f64873c5.json",
+   "difficulty": "medium",
+   "ply": 24,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 77,
+   "names": [
+    "e6"
+   ]
+  },
+  {
+   "file": "p0f018611da34.json",
+   "difficulty": "medium",
+   "ply": 25,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 80,
+   "names": [
+    "c4v"
+   ]
+  },
+  {
+   "file": "pb3fd7ddc2e55.json",
+   "difficulty": "medium",
+   "ply": 25,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 86,
+   "names": [
+    "e9"
+   ]
+  },
+  {
+   "file": "p9ed5b816bb2c.json",
+   "difficulty": "medium",
+   "ply": 26,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 76,
+   "names": [
+    "d6"
+   ]
+  },
+  {
+   "file": "pe3e575b31f47.json",
+   "difficulty": "medium",
+   "ply": 26,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 92,
+   "names": [
+    "b3"
+   ]
+  },
+  {
+   "file": "p4a4748f698f3.json",
+   "difficulty": "medium",
+   "ply": 26,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 76,
+   "names": [
+    "d6"
+   ]
+  },
+  {
+   "file": "pfa749b1f311b.json",
+   "difficulty": "medium",
+   "ply": 26,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 77,
+   "names": [
+    "f3"
+   ]
+  },
+  {
+   "file": "p087e50448812.json",
+   "difficulty": "medium",
+   "ply": 27,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 72,
+   "names": [
+    "f5v"
+   ]
+  },
+  {
+   "file": "pc41881108283.json",
+   "difficulty": "medium",
+   "ply": 27,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 86,
+   "names": [
+    "e8h"
+   ]
+  },
+  {
+   "file": "pb5aa8df7ff74.json",
+   "difficulty": "medium",
+   "ply": 27,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 77,
+   "names": [
+    "b5v"
+   ]
+  },
+  {
+   "file": "p29913f71d97b.json",
+   "difficulty": "medium",
+   "ply": 28,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 89,
+   "names": [
+    "c4h"
+   ]
+  },
+  {
+   "file": "pf902f3b45b08.json",
+   "difficulty": "medium",
+   "ply": 28,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 78,
+   "names": [
+    "i4"
+   ]
+  },
+  {
+   "file": "p8260322bd5b7.json",
+   "difficulty": "medium",
+   "ply": 28,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 86,
+   "names": [
+    "g2"
+   ]
+  },
+  {
+   "file": "pd67121ff5bb9.json",
+   "difficulty": "medium",
+   "ply": 30,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 78,
+   "names": [
+    "d5v"
+   ]
+  },
+  {
+   "file": "pa6dd753c5fff.json",
+   "difficulty": "medium",
+   "ply": 31,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 84,
+   "names": [
+    "h3"
+   ]
+  },
+  {
+   "file": "p4c42decb5197.json",
+   "difficulty": "medium",
+   "ply": 31,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 72,
+   "names": [
+    "f8h"
+   ]
+  },
+  {
+   "file": "p42f4ef662959.json",
+   "difficulty": "medium",
+   "ply": 32,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 86,
+   "names": [
+    "b3"
+   ]
+  },
+  {
+   "file": "p93f1d868027d.json",
+   "difficulty": "medium",
+   "ply": 34,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 66,
+   "names": [
+    "c5"
+   ]
+  },
+  {
+   "file": "pbaf4fd06d377.json",
+   "difficulty": "medium",
+   "ply": 34,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 86,
+   "names": [
+    "c4"
+   ]
+  },
+  {
+   "file": "p3810aab9935b.json",
+   "difficulty": "medium",
+   "ply": 34,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 80,
+   "names": [
+    "b2"
+   ]
+  },
+  {
+   "file": "p525c77535b61.json",
+   "difficulty": "medium",
+   "ply": 36,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 67,
+   "names": [
+    "b5"
+   ]
+  },
+  {
+   "file": "p4b57f37d85c6.json",
+   "difficulty": "medium",
+   "ply": 36,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 83,
+   "names": [
+    "e5"
+   ]
+  },
+  {
+   "file": "p84333df3a19e.json",
+   "difficulty": "medium",
+   "ply": 36,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 76,
+   "names": [
+    "h4"
+   ]
+  },
+  {
+   "file": "p39587039f226.json",
+   "difficulty": "medium",
+   "ply": 36,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 82,
+   "names": [
+    "c2h"
+   ]
+  },
+  {
+   "file": "pdca724ebbf06.json",
+   "difficulty": "medium",
+   "ply": 37,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 64,
+   "names": [
+    "b6"
+   ]
+  },
+  {
+   "file": "pc7383755fb08.json",
+   "difficulty": "medium",
+   "ply": 37,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 66,
+   "names": [
+    "b8v"
+   ]
+  },
+  {
+   "file": "pd07178a0067b.json",
+   "difficulty": "medium",
+   "ply": 38,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 69,
+   "names": [
+    "h6"
+   ]
+  },
+  {
+   "file": "p157cde7bb372.json",
+   "difficulty": "medium",
+   "ply": 38,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 74,
+   "names": [
+    "h4h"
+   ]
+  },
+  {
+   "file": "pfc982f536c01.json",
+   "difficulty": "medium",
+   "ply": 39,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 65,
+   "names": [
+    "a6"
+   ]
+  },
+  {
+   "file": "p1dc59a5520db.json",
+   "difficulty": "medium",
+   "ply": 39,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 79,
+   "names": [
+    "a2h"
+   ]
+  },
+  {
+   "file": "p6d098e3c6e8d.json",
+   "difficulty": "medium",
+   "ply": 39,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 64,
+   "names": [
+    "b7h"
+   ]
+  },
+  {
+   "file": "pe372d27055bd.json",
+   "difficulty": "medium",
+   "ply": 40,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 80,
+   "names": [
+    "f4"
+   ]
+  },
+  {
+   "file": "p8dc4c9de712a.json",
+   "difficulty": "medium",
+   "ply": 40,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 69,
+   "names": [
+    "h7"
+   ]
+  },
+  {
+   "file": "p26afbfb69c8a.json",
+   "difficulty": "medium",
+   "ply": 41,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 73,
+   "names": [
+    "g7"
+   ]
+  },
+  {
+   "file": "pff9087b802bd.json",
+   "difficulty": "medium",
+   "ply": 41,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 77,
+   "names": [
+    "b6h"
+   ]
+  },
+  {
+   "file": "pe9bfb5b97061.json",
+   "difficulty": "medium",
+   "ply": 42,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 79,
+   "names": [
+    "e4"
+   ]
+  },
+  {
+   "file": "p671a7c265af6.json",
+   "difficulty": "medium",
+   "ply": 42,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 85,
+   "names": [
+    "f1h"
+   ]
+  },
+  {
+   "file": "pdcbf9a3ba203.json",
+   "difficulty": "medium",
+   "ply": 43,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 74,
+   "names": [
+    "d9"
+   ]
+  },
+  {
+   "file": "p14f768c33ba4.json",
+   "difficulty": "medium",
+   "ply": 43,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 80,
+   "names": [
+    "b5"
+   ]
+  },
+  {
+   "file": "p26dc209c4128.json",
+   "difficulty": "medium",
+   "ply": 44,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 80,
+   "names": [
+    "f4h"
+   ]
+  },
+  {
+   "file": "p9e9dda8074d6.json",
+   "difficulty": "medium",
+   "ply": 45,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 78,
+   "names": [
+    "e8v"
+   ]
+  },
+  {
+   "file": "p425c29e6385f.json",
+   "difficulty": "medium",
+   "ply": 45,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 64,
+   "names": [
+    "g5"
+   ]
+  },
+  {
+   "file": "p167ba3db2d1b.json",
+   "difficulty": "medium",
+   "ply": 46,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 74,
+   "names": [
+    "g2h"
+   ]
+  },
+  {
+   "file": "pbfd5de1e8e08.json",
+   "difficulty": "medium",
+   "ply": 46,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 72,
+   "names": [
+    "c6"
+   ]
+  },
+  {
+   "file": "p70778e4c7ede.json",
+   "difficulty": "medium",
+   "ply": 46,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 54,
+   "names": [
+    "e5"
+   ]
+  },
+  {
+   "file": "pe96e63f62193.json",
+   "difficulty": "medium",
+   "ply": 46,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 72,
+   "names": [
+    "f7"
+   ]
+  },
+  {
+   "file": "pd13da1d91c40.json",
+   "difficulty": "medium",
+   "ply": 48,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 63,
+   "names": [
+    "f4"
+   ]
+  },
+  {
+   "file": "p20a1938005d9.json",
+   "difficulty": "medium",
+   "ply": 48,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 77,
+   "names": [
+    "d2v"
+   ]
+  },
+  {
+   "file": "p0b91c76e2802.json",
+   "difficulty": "medium",
+   "ply": 48,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 74,
+   "names": [
+    "f8"
+   ]
+  },
+  {
+   "file": "p499d0061a1ab.json",
+   "difficulty": "medium",
+   "ply": 50,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 68,
+   "names": [
+    "a6v"
+   ]
+  },
+  {
+   "file": "p458710f4835e.json",
+   "difficulty": "medium",
+   "ply": 50,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 67,
+   "names": [
+    "c2h"
+   ]
+  },
+  {
+   "file": "pf48474eef7d4.json",
+   "difficulty": "medium",
+   "ply": 50,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 60,
+   "names": [
+    "g5"
+   ]
+  },
+  {
+   "file": "p6559a933eaee.json",
+   "difficulty": "medium",
+   "ply": 51,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 54,
+   "names": [
+    "f8h"
+   ]
+  },
+  {
+   "file": "p005fe77db25d.json",
+   "difficulty": "medium",
+   "ply": 51,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 54,
+   "names": [
+    "f8h"
+   ]
+  },
+  {
+   "file": "pd8e7d3037c90.json",
+   "difficulty": "medium",
+   "ply": 54,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 74,
+   "names": [
+    "a4h"
+   ]
+  },
+  {
+   "file": "pdcb3f49649f4.json",
+   "difficulty": "medium",
+   "ply": 56,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 74,
+   "names": [
+    "c4"
+   ]
+  },
+  {
+   "file": "p52aef5ae8888.json",
+   "difficulty": "medium",
+   "ply": 56,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 74,
+   "names": [
+    "c4"
+   ]
+  },
+  {
+   "file": "pfd94bd62a27e.json",
+   "difficulty": "medium",
+   "ply": 58,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 75,
+   "names": [
+    "c5"
+   ]
+  },
+  {
+   "file": "pcdfc69640bee.json",
+   "difficulty": "medium",
+   "ply": 58,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 75,
+   "names": [
+    "c5"
+   ]
+  },
+  {
+   "file": "p9eeb78993d99.json",
+   "difficulty": "medium",
+   "ply": 60,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 76,
+   "names": [
+    "b2v"
+   ]
+  },
+  {
+   "file": "p0f974637eed2.json",
+   "difficulty": "medium",
+   "ply": 61,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 67,
+   "names": [
+    "h3v"
+   ]
+  },
+  {
+   "file": "p33975ef2a4a9.json",
+   "difficulty": "medium",
+   "ply": 61,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 67,
+   "names": [
+    "h3v"
+   ]
+  },
+  {
+   "file": "p27eb6899f723.json",
+   "difficulty": "medium",
+   "ply": 70,
+   "to_move": 1,
+   "winning": 1,
+   "legal": 58,
+   "names": [
+    "f6"
+   ]
+  },
+  {
+   "file": "pd0c236895c80.json",
+   "difficulty": "medium",
+   "ply": 71,
+   "to_move": 2,
+   "winning": 1,
+   "legal": 76,
+   "names": [
+    "c4"
+   ]
+  }
+ ],
+ "count": 134
+}

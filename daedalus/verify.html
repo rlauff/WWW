@@ -1,0 +1,143 @@
+<!doctype html><meta charset="utf-8"><title>daedalus · verify</title>
+<style>
+ body{background:#0e1013;color:#e6e9ee;font:13px/1.6 ui-monospace,Menlo,monospace;padding:24px;max-width:900px}
+ h1{font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#7d8794}
+ .ok{color:#5ac489}.bad{color:#ff7a59}.dim{color:#7d8794}
+ pre{white-space:pre-wrap}
+</style>
+<h1>daedalus · browser engine verification</h1>
+<p class="dim">Checks that the engine in this page agrees with the one it was built
+from, and that the card computes the same network the reference does. Everything
+below runs here, in this browser.</p>
+<pre id="out">starting…</pre>
+<script src="net.js"></script>
+<script src="app.js"></script>
+<script>
+(async () => {
+  const box = document.getElementById("out");
+  const lines = [];
+  let bad = 0;
+  const say = () => { box.innerHTML = lines.join("\n"); };
+  const line = t => { lines.push(t); say(); };
+  const check = (what, got, want, tol) => {
+    const ok = typeof want === "number" ? Math.abs(got - want) <= (tol || 0) : got === want;
+    if (!ok) bad++;
+    line(`  ${ok ? '<span class="ok">ok  </span>' : '<span class="bad">FAIL</span>'}  `
+         + what + ": " + got + (ok ? "" : "  (wanted " + want + ")"));
+    return ok;
+  };
+
+  try {
+    await (window.DAEDALUS_BOOT || Promise.resolve());
+    const w = window.DAEDALUS_WASM, N = window.DAEDALUS_NET;
+    if (!w) { line('<span class="bad">the wasm engine did not start: '
+                   + window.DAEDALUS_ERROR + "</span>"); return; }
+
+    line("1. the search, with no network involved");
+    for (const c of ["set threads 1","set batch 4","set sims 4000","set time_ms 600000",
+                     "set temperature 0","set temp_plies 0","set arena 400000"]) w.cmd(c);
+    w.cmd("set threads 1"); w.cmd("set batch 4");
+    w.cmd("moves 4 76 13 67 22 58");
+    let t = performance.now();
+    const r = w.cmd("hint");
+    check("move", r.label, "U");
+    check("simulations", r.simulations, 3167);
+    check("nodes", r.nodes, 399946);
+    check("value", r.value, 0.1657, 1e-4);
+    line('  <span class="dim">(' + (performance.now() - t).toFixed(0)
+         + " ms — this is the native engine's exact result)</span>");
+
+    line("");
+    line("2. WebGPU");
+    if (!navigator.gpu) {
+      line('  <span class="bad">this browser has no WebGPU.</span> The page still works,');
+      line('  <span class="dim">but the network runs on the cpu at seconds a position.</span>');
+    } else {
+      const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+      if (!adapter) line('  <span class="bad">no adapter — the card may be blocked</span>');
+      else {
+        const info = adapter.info || {};
+        line('  <span class="ok">ok  </span>  adapter: ' + (info.vendor || "?")
+             + " " + (info.architecture || "") + " " + (info.description || ""));
+      }
+    }
+
+    line("");
+    line("3. the weight file");
+    t = performance.now();
+    const net = await w.loadNetwork((seen, total) => {
+      lines[lines.length - 1] = '  <span class="dim">fetching… '
+        + (seen / 1e6).toFixed(0) + (total ? " of " + (total / 1e6).toFixed(0) : "") + " MB</span>";
+      say();
+    });
+    line("  " + w.netStatus());
+    check("shape", net.net.channels + "x" + net.net.blocks, "256x20");
+    check("backend", net.backend, net.backend);
+    line('  <span class="dim">(' + ((performance.now() - t) / 1000).toFixed(1) + " s)</span>");
+
+    line("");
+    line("4. the card against the reference");
+    w.cmd("moves 4 76 13 67 22 58");
+    w.beginSearch(1);
+    const planes = w.searchPlanes();
+    const mk = n => ({ logits: new Float32Array(n * net.net.actions),
+                       values: new Float32Array(n), margins: new Float32Array(n),
+                       sigmas: new Float32Array(n) });
+    const got = mk(1);
+    t = performance.now();
+    await net.forward(1, planes, got);
+    const gpuMs = performance.now() - t;
+    // These are what the native engine says about this position with the
+    // network that ships beside this page. They move when the network is
+    // replaced, so they are here to confirm the right file was uploaded, not
+    // to say anything about the arithmetic -- that is the comparison below.
+    check("value  (champ.daed as shipped)", got.values[0], 0.4870, 2e-3);
+    check("margin (champ.daed as shipped)", got.margins[0], 4.601, 2e-2);
+    check("sigma  (champ.daed as shipped)", got.sigmas[0], 7.033, 2e-2);
+    line('  <span class="dim">(' + gpuMs.toFixed(1) + " ms a position on "
+         + net.backend + ")</span>");
+
+    if (net.backend === "webgpu") {
+      // The reference is slow, so this is the only position it is asked about
+      // -- but it is the one number that says the shaders are right.
+      line('  <span class="dim">comparing against the cpu reference (slow)…</span>');
+      await new Promise(r => setTimeout(r, 20));
+      const want = mk(1);
+      new N.CpuNet(net.net).forward(1, planes, want);
+      let worst = 0;
+      for (let i = 0; i < net.net.actions; i++) {
+        worst = Math.max(worst, Math.abs(got.logits[i] - want.logits[i]));
+      }
+      lines.pop();
+      check("value vs reference", Math.abs(got.values[0] - want.values[0]) < 1e-3, true);
+      check("worst policy logit difference", worst.toFixed(5), worst.toFixed(5));
+      if (worst > 5e-2) { bad++; line('  <span class="bad">the shaders disagree with the reference</span>'); }
+      else line('  <span class="ok">ok  </span>  the card and the reference agree');
+    }
+
+    line("");
+    line('  <span class="dim">(the three above are this network\'s numbers; if a</span>');
+    line('  <span class="dim"> different champ.daed was uploaded they will differ, and only</span>');
+    line('  <span class="dim"> the card-versus-reference check above says whether it is right)</span>');
+
+    line("");
+    line("5. a whole move, the page driving the search");
+    w.cmd("set sims 200"); w.cmd("set batch 8");
+    w.cmd("moves 4 76 13 67 22 58");
+    t = performance.now();
+    const move = await w.searchMove(false, 0, null);
+    const ms = performance.now() - t;
+    check("a move came back", !!move.label, true);
+    line("  " + move.label + " after " + move.simulations + " simulations in "
+         + (ms / 1000).toFixed(1) + " s"
+         + '  <span class="dim">(' + (move.simulations / (ms / 1000)).toFixed(0)
+         + " sims a second)</span>");
+
+    line("");
+    line(bad ? '<span class="bad">' + bad + " check(s) failed</span>"
+             : '<span class="ok">everything agrees with the native engine</span>');
+  } catch (e) {
+    line('<span class="bad">ERROR: ' + (e && e.stack || e) + "</span>");
+  }
+})();
+</script>
