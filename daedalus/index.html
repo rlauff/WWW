@@ -714,7 +714,11 @@ const sup = cmd => {
   // So the search stops short of playing and the broadcast does it once.
   if (word === "genmove") {
     if (web.usingNet()) {
-      return web.searchMove(false, 0, netProgress).then(wasmAnswer);
+      return web.searchMove(false, 0, netProgress).then(answer => {
+        const note = netBackendNote();
+        if (note && /NO WEBGPU/.test(note)) say(note, true);
+        return wasmAnswer(answer);
+      });
     }
     return Promise.resolve().then(() => wasmAnswer(web.cmd("hint")));
   }
@@ -730,6 +734,14 @@ const sup = cmd => {
 
 // The weight file is ninety odd megabytes and only fetched when a network is
 // first asked for, so the wait is explained while it happens.
+// Once the network is up, say what is actually running it. A card and a cpu
+// fallback are not the same player at any time budget worth using.
+function netBackendNote() {
+  const web = WASM();
+  if (!web || !web.netReady()) return "";
+  return web.netStatus() || "";
+}
+
 function netProgress(seen, total) {
   const mb = n => (n / 1e6).toFixed(0);
   say(total ? "fetching the network… " + mb(seen) + " of " + mb(total) + " MB"

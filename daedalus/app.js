@@ -242,10 +242,15 @@
           net = await N.GpuNet.create(parsed, 16);
         } catch (error) {
           // No card, or the browser will not hand one over. The reference is
-          // correct but about a second a position, so say so rather than
-          // letting it look merely slow.
+          // CORRECT but about six seconds a position, which at any sane time
+          // budget means the search evaluates the root and nothing else. That
+          // is not "a bit slower", it is a different program -- so it is said
+          // plainly, here and on the page, rather than left to be inferred from
+          // the moves.
           net = new N.CpuNet(parsed);
-          netNote += "; no WebGPU (" + error.message + "), running on the cpu";
+          netNote = "NO WEBGPU (" + error.message + ") — running the network on "
+                  + "the cpu at seconds a move, which is far too slow to play well";
+          net.slow = true;
         }
         return net;
       })();
