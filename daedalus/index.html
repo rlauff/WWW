@@ -1716,12 +1716,21 @@ function brainOf(role, which) {
   const wanted = $("brain" + which).value;
   if (!engine) return { text: "no engine", bad: false, net: false };
   if (!engine.describe) return { text: "…", bad: false, net: false };
-  const net = engine.describe.indexOf("network") === 0;
+  // A NETWORK IS A NETWORK WHEREVER IT RUNS. This used to ask whether the
+  // engine's own description began with "network", which is what the in-process
+  // one calls itself. A model server calls itself "model server at HOST:PORT"
+  // -- it is the same weights on a card instead of on this cpu, and the better
+  // of the two -- so the page announced "no network loaded", in red, for the
+  // case that is actually working properly.
+  const remote = engine.describe.indexOf("model server") === 0;
+  const net = engine.describe.indexOf("network") === 0 || remote;
   if (wanted === "net" && !net) {
     return { text: engine.describe + " — no network loaded", bad: true, net: false };
   }
-  const file = engine.weights ? engine.weights.replace(/^.*\//, "") : "";
-  return { text: engine.describe + (net && file ? " · " + file : ""), bad: false, net };
+  // The remote already names its address; `weights` holds that same address, so
+  // appending it would say the same thing twice.
+  const file = (!remote && engine.weights) ? engine.weights.replace(/^.*\//, "") : "";
+  return { text: engine.describe + (file ? " · " + file : ""), bad: false, net };
 }
 
 // One sentence saying whose turn it is and what is answering for them, because
