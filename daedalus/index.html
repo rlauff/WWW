@@ -21,7 +21,12 @@
        The last one is what a laptop needs: at 1366px wide the old fixed board
        demanded 814px and the columns 530px more, which is 1344 before any
        padding -- so the grid overflowed and the panels ran into each other. */
-    --board: min(52vh, 760px, calc(100vw - 620px));
+    /* The board gets the room, not the panels. Four limits, whichever bites:
+         64vh              it is square, so height is what usually binds
+         820px             enough on a large monitor
+         100vw - 760px     leaves the two columns beside it their width
+         100vh - 300px     leaves the row underneath something to live in */
+    --board: min(64vh, 820px, calc(100vw - 760px), calc(100vh - 300px));
     /* The board plus the turn line and the buttons under it. The top grid row
        is pinned to exactly this, which is what makes the panels beside the
        board end where the board ends instead of stretching the row to fit
@@ -58,7 +63,7 @@
                      color: inherit; border-radius: 6px; padding: 1px 8px; cursor: pointer;
                      font-size: 11px; opacity: .8; }
   .app {
-    display: grid; gap: 18px; padding: 18px; align-items: start; justify-content: start;
+    display: grid; gap: 18px; padding: 18px; align-items: start; justify-content: center;
     /* One screen, and nothing on it scrolls the page. The top row is exactly as
        tall as the board, so the panels beside it end where it ends; the row
        under gets whatever is left. Every panel that can overflow scrolls inside
@@ -66,8 +71,14 @@
        grid item refuses to shrink below its content and pushes the page long
        again. */
     height: 100vh; overflow: hidden;
+    /* The middle column is CAPPED. As `1fr` it swallowed every spare pixel --
+       on a 1920 screen it ran to about 980px of mostly empty card while the
+       board sat at 561, which is the wrong way round: the board is the thing
+       being looked at. Fixed widths leave slack on a wide monitor, so the whole
+       grid is centred and the slack becomes margins instead of a lopsided
+       column. */
     grid-template-columns:
-      calc(var(--board) + 54px) minmax(300px, 1fr) minmax(180px, 250px);
+      calc(var(--board) + 54px) minmax(320px, 440px) minmax(180px, 250px);
     grid-template-rows: var(--toprow) minmax(0, 1fr);
     grid-template-areas: "board side moves" "under puzzles puzzles";
   }
@@ -93,7 +104,7 @@
   .puzzlearea { grid-area: puzzles; min-width: 0; min-height: 0; overflow-y: auto;
                 margin-top: 14px; }
   /* Narrow: the far right column has nowhere to go, so it joins the middle one. */
-  @media (max-width: 1250px) {
+  @media (max-width: 1320px) {
     .app { grid-template-columns: calc(var(--board) + 54px) minmax(300px, 1fr);
            grid-template-areas: "board side" "under puzzles"; }
     .movescol { display: none; }
