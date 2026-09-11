@@ -19,6 +19,7 @@
 
   let exports = null;
   let memory = null;
+  let lastPanic = null;
 
   // The module's memory can be replaced when it grows, so the view is taken
   // fresh every time rather than cached. A stale view reads freed pages.
@@ -41,11 +42,21 @@
     return text;
   }
 
+  function trapped(error) {
+    // A wasm trap arrives as a bare RuntimeError; the panic hook has already
+    // recorded what it really was.
+    const why = lastPanic ? lastPanic : (error && error.message) || String(error);
+    lastPanic = null;
+    return new Error(why);
+  }
+
   function cmd(line) {
     const input = put(line);
     let out;
     try {
       out = exports.daed_cmd(input.ptr, input.len);
+    } catch (error) {
+      throw trapped(error);
     } finally {
       exports.daed_free(input.ptr, input.len);
     }
@@ -68,6 +79,13 @@
         // The only thing the module asks the page for. wasm32-unknown-unknown
         // has no clock of its own; see src/wasmclock.rs.
         daedalus_now_ms: () => performance.now(),
+        // A panic on this target is a bare `unreachable` trap: without this the
+        // page would only ever learn that something went wrong, never what or
+        // where. The message carries the file and line.
+        daedalus_panic: (ptr, len) => {
+          lastPanic = new TextDecoder().decode(new Uint8Array(memory.buffer, ptr, len));
+          console.error("daedalus panicked: " + lastPanic);
+        },
       },
     };
     let instance;
@@ -85,8 +103,24 @@
     // The native build runs the background analysis on its own thread. Here the
     // page owns the only thread there is, so it lends it back a slice at a time
     // -- the same bounded pass, driven from a timer instead of a loop.
+    let slicing = false;
     setInterval(() => {
-      try { exports.daed_analyse_slice(); } catch (e) { /* nothing to do */ }
+      if (slicing) return;
+      try {
+        // 0 = nothing to do, 1 = a slice was run, 2 = the network's turn, which
+        // this process cannot do because the network is not in it.
+        const answer = exports.daed_analyse_slice();
+        if (answer !== 2) return;
+      } catch (error) {
+        console.error(trapped(error).message);
+        return;
+      }
+      // Analysis with the network is the same driven loop a move uses, run for
+      // one slice at a time. The tree is kept between them, so it deepens pass
+      // after pass exactly as the native analysis does.
+      slicing = true;
+      driveSlice().catch(error => console.error(error.message))
+                  .finally(() => { slicing = false; });
     }, 60);
 
     // The driven search, for when a network is doing the evaluating. Each of
@@ -219,8 +253,34 @@
     }
 
     /// One move, with the page driving the search and the card answering it.
+    ///
+    /// Never two at once: a driven search holds leaves on the tree that only
+    /// its own `deliver` can hand back, and starting a second over the top of
+    /// it corrupts the arena.
+    let searching = false;
     async function searchMove(play, sims, onProgress) {
+      if (searching) throw new Error("a search is already running");
       const evaluator = await loadNetwork(onProgress);
+      searching = true;
+      try {
+        return await runSearch(evaluator, play, sims);
+      } finally {
+        searching = false;
+      }
+    }
+
+    /// One analysis pass: the same loop, told not to play the move it finds.
+    async function driveSlice() {
+      if (searching || !net) return;
+      searching = true;
+      try {
+        await runSearch(net, false, 0);
+      } finally {
+        searching = false;
+      }
+    }
+
+    async function runSearch(evaluator, play, sims) {
       const started = performance.now();
       if (!beginSearch(sims || 0)) return { ok: false, error: "the game is over" };
       const out = {
