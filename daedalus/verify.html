@@ -19,6 +19,7 @@ below runs here, in this browser.</p>
   let bad = 0;
   const say = () => { box.innerHTML = lines.join("\n"); };
   const line = t => { lines.push(t); say(); };
+  const lines_pop = () => { lines.pop(); };
   const check = (what, got, want, tol) => {
     const ok = typeof want === "number" ? Math.abs(got - want) <= (tol || 0) : got === want;
     if (!ok) bad++;
@@ -98,27 +99,59 @@ below runs here, in this browser.</p>
          + net.backend + ")</span>");
 
     if (net.backend === "webgpu") {
-      // The reference is slow, so this is the only position it is asked about
-      // -- but it is the one number that says the shaders are right.
-      line('  <span class="dim">comparing against the cpu reference (slow)…</span>');
-      await new Promise(r => setTimeout(r, 20));
-      const want = mk(1);
-      new N.CpuNet(net.net).forward(1, planes, want);
-      let worst = 0;
-      for (let i = 0; i < net.net.actions; i++) {
-        worst = Math.max(worst, Math.abs(got.logits[i] - want.logits[i]));
+      // THE CHECK THAT MATTERS. A shader that is subtly wrong still returns
+      // numbers, and the engine still plays -- badly, in ways nobody watching
+      // could place. So the card is compared against the reference on several
+      // positions, not one: a bug in the residual chain shows up on a position
+      // with pieces and walls long before it shows up on an empty board.
+      const lines = [[], ["e2","e8","e3","e7","e4","e6"],
+                     ["e2","e8","e3","e7","e4","e6","d4h","f6h","c3","g7"]];
+      let worstValue = 0, worstMargin = 0, worstLogit = 0, at = "";
+      for (let i = 0; i < lines.length; i++) {
+        line('  <span class="dim">comparing position ' + (i + 1) + " of " + lines.length
+             + " against the cpu reference (slow)…</span>");
+        await new Promise(r => setTimeout(r, 20));
+        w.cmd("newgame");
+        for (const mv of lines[i]) w.cmd("play " + mv);
+        w.beginSearch(1);
+        const p = w.searchPlanes();
+        const got = mk(1), want = mk(1);
+        await net.forward(1, p, got);
+        new N.CpuNet(net.net).forward(1, p, want);
+        let logit = 0;
+        for (let k = 0; k < net.net.actions; k++) {
+          logit = Math.max(logit, Math.abs(got.logits[k] - want.logits[k]));
+        }
+        const dv = Math.abs(got.values[0] - want.values[0]);
+        const dm = Math.abs(got.margins[0] - want.margins[0]);
+        if (dv > worstValue) { worstValue = dv; at = "position " + (i + 1); }
+        worstMargin = Math.max(worstMargin, dm);
+        worstLogit = Math.max(worstLogit, logit);
+        lines_pop();
+        line("  position " + (i + 1) + " (" + (lines[i].length || "empty board")
+             + (lines[i].length ? " plies" : "") + "): card " + got.values[0].toFixed(4)
+             + " vs reference " + want.values[0].toFixed(4)
+             + '  <span class="dim">(margin ' + got.margins[0].toFixed(2) + " vs "
+             + want.margins[0].toFixed(2) + ")</span>");
       }
-      lines.pop();
-      check("value vs reference", Math.abs(got.values[0] - want.values[0]) < 1e-3, true);
-      check("worst policy logit difference", worst.toFixed(5), worst.toFixed(5));
-      if (worst > 5e-2) { bad++; line('  <span class="bad">the shaders disagree with the reference</span>'); }
-      else line('  <span class="ok">ok  </span>  the card and the reference agree');
+      line("");
+      check("worst value difference", worstValue.toFixed(5), worstValue.toFixed(5));
+      check("worst margin difference", worstMargin.toFixed(4), worstMargin.toFixed(4));
+      check("worst policy difference", worstLogit.toFixed(4), worstLogit.toFixed(4));
+      // f32 on a card against f32 in JavaScript: the orders of accumulation
+      // differ, so a few thousandths is expected and anything more is not.
+      if (worstValue > 5e-3 || worstLogit > 5e-2) {
+        bad++;
+        const msg = "  THE SHADERS DISAGREE WITH THE REFERENCE"
+                  + (at ? " (worst at " + at + ")" : "")
+                  + ". The card is not computing this network, and every move the"
+                  + " engine makes is meaningless.";
+        line('<span class="bad">' + msg + "</span>");
+      } else {
+        line('  <span class="ok">ok  </span>  the card and the reference agree'
+             + ' &mdash; the shaders are right');
+      }
     }
-
-    line("");
-    line('  <span class="dim">(the three above are this network\'s numbers; if a</span>');
-    line('  <span class="dim"> different champ.daed was uploaded they will differ, and only</span>');
-    line('  <span class="dim"> the card-versus-reference check above says whether it is right)</span>');
 
     line("");
     line("5. a whole move, the page driving the search");
