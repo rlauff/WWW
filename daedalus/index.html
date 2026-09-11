@@ -197,8 +197,10 @@
      eighty puzzles listed in full would be two thousand pixels of page. */
   #puz-listwrap { max-height: min(38vh, 380px); overflow-y: auto; margin-top: 8px; }
 
-  .wingraph { margin-top: 12px; }
-  .wingraph svg { display: block; width: 100%; height: 132px; cursor: pointer; }
+  .wingraph { margin-top: 6px; }
+  /* Short enough that the card still fits the row under the board on a 900px
+     screen, which is where this was disappearing. */
+  .wingraph svg { display: block; width: 100%; height: 104px; cursor: pointer; }
   .wingraph .gtitle { display: flex; gap: 8px; align-items: baseline;
                       font-size: 11px; color: var(--dim); margin-bottom: 6px; }
   .wingraph .gtitle b { font-size: 12px; color: var(--ink); font-weight: 600; }
@@ -446,6 +448,15 @@
 
   <div class="under">
 
+    <!-- Its own card, and first, because it is about the whole game rather than
+         about a setting. Buried at the foot of the Analysis card it was below
+         the fold of a panel a couple of hundred pixels tall, and a graph nobody
+         can find is a graph that is not there. -->
+    <div class="card" id="wingraph-card" style="display:none">
+      <h2>Win chance <span class="right" id="wingraph-note"></span></h2>
+      <div id="wingraph" class="wingraph"></div>
+    </div>
+
     <div class="card">
         <h2>Analysis <span class="right chip brain" id="chipA" title="what the analysis engine is really thinking with">off</span></h2>
         <div class="row">
@@ -490,7 +501,6 @@
           <span class="unit" id="full-state" style="margin-left:auto;text-align:right"></span>
         </div>
         <div class="prog" id="full-prog" style="display:none"><i id="full-bar"></i></div>
-        <div id="wingraph" class="wingraph" style="display:none"></div>
         <div class="sum" id="full-summary"></div>
         <p class="note">The whole game, one pass a position on this same engine and these same
           settings, and then every move scored by what it lost against the one before it. A pass
@@ -1512,7 +1522,7 @@ function renderFull() {
 // there, which alternates -- drawn raw it would zigzag between the two players'
 // opinions and mean nothing. Player one moves on even plies, so odd ones are
 // negated and the whole line reads as one player's game.
-const WIN_W = 640, WIN_H = 132, WIN_PAD = 22;
+const WIN_W = 640, WIN_H = 104, WIN_PAD = 22;
 
 function winPercent(ply) {
   const v = full.evals[ply];
@@ -1522,8 +1532,10 @@ function winPercent(ply) {
 
 function renderWinGraph() {
   const box = $("wingraph");
+  const card = $("wingraph-card");
   const ready = full && full.upto > 1;
   box.style.display = ready ? "" : "none";
+  if (card) card.style.display = ready ? "" : "none";
   if (!ready) return;
 
   const last = Math.min(full.upto, full.moves.length + 1);
@@ -1536,7 +1548,7 @@ function renderWinGraph() {
 
   const span = Math.max(1, full.moves.length);
   const x = ply => WIN_PAD + (WIN_W - WIN_PAD - 6) * (ply / span);
-  const y = pc => 6 + (WIN_H - 26) * (1 - pc / 100);
+  const y = pc => 5 + (WIN_H - 21) * (1 - pc / 100);
   const line = pts.map(([p, v], i) => (i ? "L" : "M") + x(p).toFixed(1) + " " + y(v).toFixed(1));
   const mid = y(50);
   // Two fills against the halfway line: above it is player one's, below is
@@ -1557,12 +1569,17 @@ function renderWinGraph() {
   const at = winPercent(Math.min(here, full.evals.length - 1));
   const marks = [];
   for (let ply = 0; ply <= span; ply += Math.max(1, Math.round(span / 8))) {
-    marks.push('<text x="' + x(ply).toFixed(1) + '" y="' + (WIN_H - 4)
+    marks.push('<text x="' + x(ply).toFixed(1) + '" y="' + (WIN_H - 3)
       + '" fill="var(--dim)" font-size="9" text-anchor="middle">' + ply + "</text>");
   }
 
+  const note = $("wingraph-note");
+  if (note) {
+    note.textContent = (at === null ? "" : at.toFixed(0) + "% at ply " + here)
+                     + (full.done ? "" : " · still running");
+  }
   box.innerHTML =
-    '<div class="gtitle"><b>Player 1 win chance</b><span>'
+    '<div class="gtitle"><b>Player 1</b><span>'
       + (at === null ? "" : at.toFixed(0) + "% at ply " + here) + "</span>"
       + '<span style="margin-left:auto">click to jump</span></div>'
     + '<svg viewBox="0 0 ' + WIN_W + " " + WIN_H + '" preserveAspectRatio="none">'
@@ -1576,10 +1593,10 @@ function renderWinGraph() {
     + '<path d="' + line.join(" ") + '" fill="none" stroke="var(--ink)" stroke-width="1.6"'
       + ' stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
     + '<line x1="' + x(here).toFixed(1) + '" y1="4" x2="' + x(here).toFixed(1)
-      + '" y2="' + (WIN_H - 20) + '" stroke="var(--accent)" stroke-width="1"'
+      + '" y2="' + (WIN_H - 16) + '" stroke="var(--accent)" stroke-width="1"'
       + ' vector-effect="non-scaling-stroke"/>'
     + '<text x="2" y="12" fill="var(--dim)" font-size="9">100</text>'
-    + '<text x="6" y="' + (WIN_H - 20) + '" fill="var(--dim)" font-size="9">0</text>'
+    + '<text x="6" y="' + (WIN_H - 16) + '" fill="var(--dim)" font-size="9">0</text>'
     + marks.join("")
     + "</svg>";
 
