@@ -574,7 +574,9 @@ const sy = y => (8 - y) * STEP;
 // One engine per AI player, plus one for analysis when it is switched on.
 // describe is what that engine answers when asked what it is thinking with,
 // which is the only trustworthy answer: the select below it is a request.
-const roles = { p1: null, p2: null, an: null };   // { id, url, applied, describe, weights }
+const roles = { p1: null, p2: null, an: null };
+// What the one browser session was last told to think with. See pushBrain.
+let sessionBrain = null;   // { id, url, applied, describe, weights }
 
 let state = null, snap = null, busy = false, auto = false, pollTimer = null, tickTimer = null;
 
@@ -758,7 +760,15 @@ async function ensureEngine(role) {
   // three views of it. Recorded so the panel can report what it is thinking
   // with, exactly as it does for a process.
   if (WASM()) {
+    // The same steps as a spawned engine gets, and for the same reason: without
+    // pushBrain the session keeps the heuristic it started with, and every move
+    // this seat makes would be played by that -- quickly, and badly -- while the
+    // select above claimed a network. Skipping applySettings left it on the
+    // built-in time and arena as well.
     roles[role] = { id: 0, url: "wasm", applied: {}, describe: "", weights: "" };
+    await syncEngine(role);
+    await pushBrain(role);
+    await applySettings(role, true);
     await readEngine(role);
     renderPanel();
     return roles[role];
@@ -815,7 +825,12 @@ async function pushBrain(role) {
     const kind = $("brain" + which).value;
     const file = $("wts" + which).value.trim();
     const wanted = kind === "net" ? "brain net " + file : "brain heuristic";
-    if (engine.brain === wanted) return;
+    // Served, each seat has an engine of its own and remembers its own brain.
+    // In the browser the three seats are one session, which can only think with
+    // one thing at a time -- so what matters is what the SESSION was last told,
+    // not what this seat believes. Comparing per seat would skip the command
+    // and leave the other seat's brain in place.
+    if ((WASM() ? sessionBrain : engine.brain) === wanted) return;
     engine.describe = "";
     renderPanel();
     try {
@@ -827,6 +842,7 @@ async function pushBrain(role) {
       throw problem;
     }
     engine.brain = wanted;
+    if (WASM()) sessionBrain = wanted;
     engine.applied = {};          // the rebuild forgets the search settings
     await applySettings(role, true);
     await readEngine(role);
@@ -2025,6 +2041,9 @@ async function aiMove() {
     const role = roleOf(side);
     say("Player " + side + " thinking…");
     await ensureEngine(role);
+    // One session, one brain: if the other seat moved last with a different
+    // one, put this seat's back before searching.
+    if (WASM()) await pushBrain(role);
     await applySettings(role, false);
     snap = null;
     const at = state;
