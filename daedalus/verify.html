@@ -58,8 +58,18 @@ below runs here, in this browser.</p>
       if (!adapter) line('  <span class="bad">no adapter — the card may be blocked</span>');
       else {
         const info = adapter.info || {};
-        line('  <span class="ok">ok  </span>  adapter: ' + (info.vendor || "?")
-             + " " + (info.architecture || "") + " " + (info.description || ""));
+        const name = [info.vendor, info.architecture, info.description].join(" ").toLowerCase();
+        const software = /swiftshader|llvmpipe|software|lavapipe|warp/.test(name);
+        if (software) bad++;
+        line('  ' + (software ? '<span class="bad">SOFT</span>' : '<span class="ok">ok  </span>')
+             + "  adapter: " + (info.vendor || "?") + " " + (info.architecture || "")
+             + " " + (info.description || ""));
+        if (software) {
+          line('  <span class="bad">  this is a SOFTWARE renderer, not your graphics card.</span>');
+          line('  <span class="dim">  the network will be computed correctly but far too slowly</span>');
+          line('  <span class="dim">  to search, so the engine will play well below its strength.</span>');
+          line('  <span class="dim">  see chrome://gpu for why the real one is not being used.</span>');
+        }
       }
     }
 

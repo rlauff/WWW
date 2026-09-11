@@ -631,10 +631,18 @@ const ARENAS = [
   [8388608, "8M · 448 MB"], [16777216, "16M · 0.9 GB"], [33554432, "32M · 1.8 GB"],
   [67108864, "64M · 3.6 GB"], [134217728, "128M · 7.2 GB"], [268435456, "256M · 15 GB"],
 ];
+// COUNTED IN SIMULATIONS, NOT SECONDS.
+//
+// A clock makes the engine a different player on every machine: the same preset
+// that searches thousands of positions on one gets through the root and nothing
+// else on another, and the second plays from the network's first impression
+// with no search behind it at all -- which looks like a broken engine rather
+// than a slow one. Simulations are the same work everywhere, so a preset means
+// one thing, a game is reproducible, and a slow machine is slow instead of bad.
 const PRESETS = {
-  low:    { time: 250,  sims: 0, threads: 1, arena: 262144,  slice: 100, exploration: 2 },
-  medium: { time: 1000, sims: 0, threads: 2, arena: 1048576, slice: 120, exploration: 2 },
-  high:   { time: 4000, sims: 0, threads: 4, arena: 4194304, slice: 200, exploration: 2 },
+  low:    { time: 0, sims: 300,  threads: 1, arena: 262144,  slice: 100, exploration: 2 },
+  medium: { time: 0, sims: 1200, threads: 2, arena: 1048576, slice: 120, exploration: 2 },
+  high:   { time: 0, sims: 4000, threads: 4, arena: 4194304, slice: 200, exploration: 2 },
 };
 
 for (const id of ["arena1", "arena2", "arenaA"]) {
@@ -776,6 +784,28 @@ async function checkGpu() {
   }
   try {
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+    // A SOFTWARE ADAPTER IS NOT A CARD. Chrome falls back to SwiftShader -- its
+    // own CPU implementation of a GPU -- when it will not use the real one, and
+    // WebGPU then works perfectly and computes the network exactly right, at
+    // about five seconds a position. That is slower than the plain cpu path and
+    // far too slow to search, so the engine plays from the network's first
+    // impression and looks broken rather than slow. It reports itself as a
+    // working adapter, so nothing catches it except looking at the name.
+    if (adapter) {
+      const info = adapter.info || {};
+      const name = [info.vendor, info.architecture, info.description].join(" ").toLowerCase();
+      if (/swiftshader|llvmpipe|software|lavapipe|warp/.test(name)) {
+        banner("bad",
+          "<b>This browser is using a software renderer (" + (info.architecture || info.vendor)
+          + "), not your graphics card.</b><br>"
+          + "The network is computed correctly but takes seconds a position, so the search "
+          + "barely gets started and the engine plays far below its strength. "
+          + "Chrome falls back to this when it will not use the real GPU &mdash; "
+          + "<code>chrome://gpu</code> says why. On Linux it is usually missing Vulkan "
+          + "drivers or hardware acceleration being switched off.");
+        return false;
+      }
+    }
     if (!adapter) {
       banner("bad",
         "<b>WebGPU is available but this browser would not give the page a graphics "
@@ -935,10 +965,10 @@ async function applySettings(role, force) {
   const engine = roles[role];
   if (!engine) return;
   const want = role === "an"
-    ? Object.assign({ time_ms: 60000, sims: 0 }, GREEDY, {
+    ? Object.assign({ time_ms: 0, sims: 4000 }, GREEDY, {
         threads: analysisSettings().threads, exploration: analysisSettings().exploration,
         arena: analysisSettings().arena, slice_ms: analysisSettings().slice })
-    : (s => Object.assign({ time_ms: Math.max(10, s.time), sims: Math.max(0, s.sims),
+    : (s => Object.assign({ time_ms: Math.max(0, s.time), sims: Math.max(0, s.sims),
                             threads: Math.max(1, s.threads), exploration: s.exploration,
                             arena: s.arena }, GREEDY))(settings(role === "p1" ? 1 : 2));
   let rebuilt = false;
