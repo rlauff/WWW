@@ -21,12 +21,16 @@
        The last one is what a laptop needs: at 1366px wide the old fixed board
        demanded 814px and the columns 530px more, which is 1344 before any
        padding -- so the grid overflowed and the panels ran into each other. */
-    --board: min(56vh, 760px, calc(100vw - 620px));
+    --board: min(52vh, 760px, calc(100vw - 620px));
     /* The board plus the turn line and the buttons under it. The top grid row
        is pinned to exactly this, which is what makes the panels beside the
        board end where the board ends instead of stretching the row to fit
        whatever is in them. */
-    --toprow: calc(var(--board) + 96px);
+    /* The board plus the turn line and the buttons under it. Measured, not
+       guessed: at 1366x768 the board area comes to the board plus 105px, and
+       a --toprow short of that left the columns beside it ending nine pixels
+       above the board instead of level with it. */
+    --toprow: calc(var(--board) + 106px);
   }
   * { box-sizing: border-box; }
   body {
@@ -67,7 +71,14 @@
     grid-template-rows: var(--toprow) minmax(0, 1fr);
     grid-template-areas: "board side moves" "under puzzles puzzles";
   }
-  .board-area { grid-area: board; min-width: 0; }
+  /* EVERY panel is stretched to its grid row and scrolls inside it.
+     `align-items: start` on the grid sizes items to their content instead, so
+     a panel taller than its row simply overflowed -- the row below was pushed
+     off the bottom of the page and clipped away by the `overflow: hidden` that
+     keeps this to one screen. Measured at 1366x768: the lower row ran 157px
+     past the fold and nothing scrolled, because nothing was constrained. */
+  .side, .movescol, .under, .puzzlearea { align-self: stretch; }
+  .board-area { grid-area: board; min-width: 0; align-self: start; }
   .under      { grid-area: under;   min-width: 0; min-height: 0; overflow-y: auto;
                 margin-top: 14px; }
   .side       { grid-area: side;    min-width: 0; min-height: 0; overflow-y: auto;
@@ -423,7 +434,9 @@
       </div>
       <p class="note">A shared <b>barricade.gg/analysis</b> link carries its own moves, so it
         loads without an account. Moves can also be pasted straight in, either as
-        <b>e2 e8 e3h</b> or as this engine's own <b>U D H42</b>.</p>
+        <b>e2 e8 e3h</b> or as this engine&rsquo;s own <b>U D H42</b>.
+        A bare <i>share code</i> has to be fetched from barricade.gg, which browsers
+        block on a site that is not theirs &mdash; paste the moves instead.</p>
     </div>
 
     <div class="card" id="review-card" style="display:none">
@@ -496,7 +509,10 @@
           <div class="row" style="margin-top:6px"><label>Margin</label><span id="headNote" class="unit">&mdash;</span></div>
         </div></details>
         <div class="row" style="margin-top:12px">
-          <button class="primary" id="btn-full" style="flex:0 0 auto">Full analysis</button>
+          <label style="flex:0 0 auto">Depth</label>
+        <input id="fullSims" type="number" min="1" max="20000" step="100" value="400"
+               style="width:76px" title="simulations spent on each position of the game">
+        <button class="primary" id="btn-full" style="flex:0 0 auto">Full analysis</button>
           <button id="btn-full-stop" style="flex:0 0 auto;display:none">Stop</button>
           <span class="unit" id="full-state" style="margin-left:auto;text-align:right"></span>
         </div>
@@ -650,9 +666,13 @@ const ARENAS = [
 // than a slow one. Simulations are the same work everywhere, so a preset means
 // one thing, a game is reproducible, and a slow machine is slow instead of bad.
 const PRESETS = {
-  low:    { time: 0, sims: 300,  threads: 1, arena: 262144,  slice: 100, exploration: 2 },
-  medium: { time: 0, sims: 1200, threads: 2, arena: 1048576, slice: 120, exploration: 2 },
-  high:   { time: 0, sims: 4000, threads: 4, arena: 4194304, slice: 200, exploration: 2 },
+  // `batch` is how many leaves the search hands the evaluator at once, and on a
+  // card it is the difference between feeding it and starving it. Measured here
+  // against a model server: threads 2 / batch 8 gives 1748 simulations a
+  // second, threads 16 / batch 32 gives 3342, and beyond that it plateaus.
+  low:    { time: 0, sims: 300,  threads: 4,  batch: 16, arena: 262144,  slice: 100, exploration: 2 },
+  medium: { time: 0, sims: 1200, threads: 16, batch: 32, arena: 1048576, slice: 120, exploration: 2 },
+  high:   { time: 0, sims: 4000, threads: 16, batch: 32, arena: 4194304, slice: 200, exploration: 2 },
 };
 
 for (const id of ["arena1", "arena2", "arenaA"]) {
@@ -669,9 +689,11 @@ const settings = slot => ({
   time: +$("time" + slot).value, sims: +$("sims" + slot).value,
   threads: +$("thr" + slot).value, arena: +$("arena" + slot).value,
   exploration: +$("expl" + slot).value,
+  batch: PRESETS[$("preset" + slot).value] ? PRESETS[$("preset" + slot).value].batch : 8,
 });
 const analysisSettings = () => ({ threads: +$("thrA").value, arena: +$("arenaA").value,
-  slice: +$("sliceA").value, exploration: +$("explA").value });
+  slice: +$("sliceA").value, exploration: +$("explA").value,
+  batch: (PRESETS[$("presetA").value] || PRESETS.medium).batch });
 const kind = slot => $("kind" + slot).value;
 const over = () => state && state.outcome !== null && state.outcome !== undefined;
 const roleOf = side => (side === 1 ? "p1" : "p2");
@@ -720,6 +742,11 @@ async function post(url, path, body) {
 // is on the page; without it this is the socket server, which is what the
 // development build serves. Nothing else on the page knows the difference.
 const WASM = () => window.DAEDALUS_WASM || null;
+// A model server this supervisor started, as HOST:PORT. Empty in the browser
+// and when run.sh could not start one; then "Network" means the forward pass
+// compiled into the engine, which is correct and about six hundred times
+// slower. Asked once at start-up.
+let MODEL = "";
 function wasmAnswer(reply) {
   if (reply && reply.ok === false) throw new Error(reply.error || "command failed");
   return reply;
@@ -937,7 +964,13 @@ async function pushBrain(role) {
     const which = role === "an" ? "A" : (role === "p1" ? "1" : "2");
     const kind = $("brain" + which).value;
     const file = $("wts" + which).value.trim();
-    const wanted = kind === "net" ? "brain net " + file : "brain heuristic";
+    // With a model server available, "Network" means THAT network -- on the
+    // card, through a socket -- rather than the same weights loaded into this
+    // process as cpu code. A file typed into the box still wins: asking for a
+    // particular snapshot has to keep meaning that.
+    const wanted = kind !== "net" ? "brain heuristic"
+                 : (MODEL && !file) ? "brain remote " + MODEL
+                 : "brain net " + file;
     // Served, each seat has an engine of its own and remembers its own brain.
     // In the browser the three seats are one session, which can only think with
     // one thing at a time -- so what matters is what the SESSION was last told,
@@ -977,10 +1010,12 @@ async function applySettings(role, force) {
   const want = role === "an"
     ? Object.assign({ time_ms: 0, sims: 4000 }, GREEDY, {
         threads: analysisSettings().threads, exploration: analysisSettings().exploration,
-        arena: analysisSettings().arena, slice_ms: analysisSettings().slice })
+        arena: analysisSettings().arena, slice_ms: analysisSettings().slice,
+        batch: analysisSettings().batch })
     : (s => Object.assign({ time_ms: Math.max(0, s.time), sims: Math.max(0, s.sims),
                             threads: Math.max(1, s.threads), exploration: s.exploration,
-                            arena: s.arena }, GREEDY))(settings(role === "p1" ? 1 : 2));
+                            arena: s.arena, batch: Math.max(1, s.batch) },
+                           GREEDY))(settings(role === "p1" ? 1 : 2));
   let rebuilt = false;
   for (const key in want) {
     if (!force && engine.applied[key] === want[key]) continue;
@@ -1342,7 +1377,16 @@ async function fetchBarricade(code) {
     res = await fetch("https://api.barricade.gg/games/" + encodeURIComponent(code),
                       { signal: stop.signal, cache: "no-store" });
   } catch (problem) {
-    throw new Error("barricade.gg could not be reached from this page");
+    // The request is made by the READER'S browser, not by whatever serves this
+    // page, so this is not about the site being offline. barricade.gg's API
+    // sends no cross-origin header, and a browser will not hand a page a
+    // response from another site without one. Nothing on this side can grant
+    // that -- so say what does work instead of stopping at "failed".
+    throw new Error(
+      "barricade.gg will not answer another site's page (no cross-origin header), "
+      + "so a link cannot be fetched here. Open the game on barricade.gg, copy its "
+      + "moves, and paste them into this box instead \u2014 that path needs nobody's "
+      + "permission.");
   } finally {
     clearTimeout(timer);
   }
@@ -1432,7 +1476,11 @@ async function runFullAnalysis() {
   // The same engine and the same settings as the live analysis, down to the
   // length of a pass: live analysis gives a position pass after pass, and this
   // gives every position one.
-  const perMove = Math.max(20, Math.min(2000, +$("sliceA").value || 120));
+  // SIMULATIONS A POSITION, not milliseconds. A clock here meant that on a
+  // machine where one evaluation takes longer than the slice, every ply got the
+  // root evaluation and nothing else -- an "analysis" that was really just the
+  // raw network opinion, and silently so.
+  const perMove = Math.max(1, Math.min(20000, +$("fullSims").value || 400));
   fullRunning = true;
   fullStop = false;
   auto = false;                       // a pass takes minutes; auto play must not wake up into it
@@ -1446,8 +1494,8 @@ async function runFullAnalysis() {
       // time_ms is about to go out behind applySettings' back, so what it
       // believes the engine is set to is no longer true.
       roles.an.applied = {};
-      await engCmd("an", "set sims 0");
-      await engCmd("an", "set time_ms " + perMove);
+      await engCmd("an", "set sims " + perMove);
+      await engCmd("an", "set time_ms 0");
       for (let ply = 0; ply <= full.moves.length; ply++) {
         if (fullStop) break;
         const at = await engCmd("an", "moves " + full.moves.slice(0, ply).join(" "));
@@ -1510,7 +1558,7 @@ function renderFull() {
     ? " · the board has moved on" : "";
   $("full-state").textContent = !full ? ""
     : running ? "position " + full.upto + " of " + (full.moves.length + 1)
-    : full.done ? full.ms + " ms a position" + behind
+    : full.done ? full.ms + " simulations a position" + behind
     : "stopped at " + full.upto + " of " + (full.moves.length + 1) + behind;
   renderWinGraph();
   renderSummary();
@@ -2650,6 +2698,13 @@ async function boot() {
     + "moves are meaningless.</b><br>" + why
     + ". Open <a href=\"verify.html\" style=\"color:inherit\">verify.html</a> for the "
     + "full comparison against the reference implementation.");
+  if (!WASM()) {
+    try {
+      const config = await (await fetch(SUP + "/config")).json();
+      MODEL = config.model || "";
+      if (MODEL) say("network play goes to the model server on " + MODEL);
+    } catch (e) { MODEL = ""; }      // an older server has no /config
+  }
   if (!WASM() && window.DAEDALUS_ERROR) {
     banner("bad", "<b>The engine did not start, so this page cannot play at all.</b><br>"
       + window.DAEDALUS_ERROR);
