@@ -696,8 +696,28 @@ const sup = cmd => {
   // The answer is the same object `genmove` and `hint` return, so nothing above
   // here knows which of the two paths a move came out of.
   const word = cmd.trim().split(/\s+/)[0];
-  if ((word === "genmove" || word === "hint") && web.usingNet()) {
-    return web.searchMove(word === "genmove", 0, netProgress).then(wasmAnswer);
+  // `genmove` SEARCHES BUT DOES NOT PLAY here, and that is not a detail.
+  //
+  // Served, the page drives four engines: one a side, one for analysis, and the
+  // supervisor that holds the real game. `genmove` plays the move in the engine
+  // that found it, and the broadcast afterwards plays it in the other three --
+  // `except` keeps it from reaching the first one twice.
+  //
+  // In the browser all four are the SAME session, so `except` has nothing to
+  // exclude: the move would be played by `genmove` and then again by the
+  // broadcast, two plies for one move. That is the engine moving twice in a row
+  // and then calling the page's next move illegal, because the board it holds
+  // has run ahead of the one on screen.
+  //
+  // So the search stops short of playing and the broadcast does it once.
+  if (word === "genmove") {
+    if (web.usingNet()) {
+      return web.searchMove(false, 0, netProgress).then(wasmAnswer);
+    }
+    return Promise.resolve().then(() => wasmAnswer(web.cmd("hint")));
+  }
+  if (word === "hint" && web.usingNet()) {
+    return web.searchMove(false, 0, netProgress).then(wasmAnswer);
   }
   // Same reason: the overlay's heads are on the card too.
   if (word === "heads" && web.usingNet()) {
@@ -1908,8 +1928,12 @@ async function refresh() {
 async function poll() {
   if (!roles.an || busy || !$("analyse").checked) return;
   try {
-    const res = await fetch(roles.an.url + "/status");
-    snap = await res.json();
+    // The one place that reached past the transport and fetched a URL. In the
+    // browser there is no URL to fetch -- `roles.an.url` is a label, not an
+    // address -- so this asked for "wasm/status", got a 404, and swallowed it:
+    // live analysis would have sat there showing nothing for ever.
+    const web = WASM();
+    snap = web ? web.snapshot() : await (await fetch(roles.an.url + "/status")).json();
     // The heads only change when the position does, and asking costs a forward
     // pass, so follow the ply rather than the poll.
     if (headsWanted() && state && headsPly !== state.plies) {
