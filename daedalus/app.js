@@ -298,6 +298,7 @@
         const count = searchCount();
         if (!count) break;
         await evaluator.forward(count, planes, out);
+        checkSane(out, count, evaluator);
         deliver({
           logits: out.logits.subarray(0, count * evaluator.net.actions),
           values: out.values.subarray(0, count),
@@ -340,12 +341,45 @@
       return JSON.parse(out);
     }
 
+    /// The cheapest possible check that the card is computing the network and
+    /// not something else.
+    ///
+    /// A shader that is subtly wrong still returns numbers, and the search
+    /// still runs, and the engine still plays -- badly, for reasons nobody
+    /// watching could place. A NaN, or a value outside the range the head can
+    /// even produce, or a policy that is perfectly flat, all say the arithmetic
+    /// is not the network's. Checked once, on the first batch, then never
+    /// again: it costs nothing there and would cost something every batch.
+    let sanityChecked = false;
+    let sanityNote = "";
+    function checkSane(out, count, evaluator) {
+      if (sanityChecked || !count) return;
+      sanityChecked = true;
+      const value = out.values[0], margin = out.margins[0];
+      let flat = true;
+      const row = out.logits.subarray(0, evaluator.net.actions);
+      for (let i = 1; i < row.length; i++) if (row[i] !== row[0]) { flat = false; break; }
+      let why = "";
+      if (!Number.isFinite(value) || !Number.isFinite(margin)) {
+        why = "the network returned " + value + " for the value of the opening position";
+      } else if (Math.abs(value) > 1.0001) {
+        why = "the value came back as " + value.toFixed(3) + ", which the head cannot produce";
+      } else if (flat) {
+        why = "every move came back with an identical score, so the policy is not being computed";
+      }
+      if (why) {
+        sanityNote = why;
+        if (typeof window.DAEDALUS_ON_BROKEN === "function") window.DAEDALUS_ON_BROKEN(why);
+      }
+    }
+
+    const netBroken = () => sanityNote;
     const netReady = () => !!net;
     const netStatus = () => netNote;
 
     window.DAEDALUS_WASM = { cmd, snapshot, single: true, beginSearch, searchCount,
                              searchPlanes, deliver, searchDone, searchFinish,
-                             loadNetwork, searchMove, netReady, netStatus, usingNet, headsNow };
+                             loadNetwork, searchMove, netReady, netStatus, usingNet, headsNow, netBroken };
     window.dispatchEvent(new Event("daedalus-ready"));
   }
 

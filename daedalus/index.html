@@ -38,6 +38,21 @@
   /* Board and eval bar top left, the two players underneath them, everything
      to do with a whole game down the right hand side. */
   html, body { max-width: 100%; overflow-x: hidden; }
+
+  /* Said at the top of the page, before anything is played. A visitor who
+     finds out halfway through a game that the engine was never the engine has
+     been misled by the page, not by the browser. */
+  .banner { display: none; margin: 0 18px 0; padding: 12px 16px; border-radius: 10px;
+            border: 1px solid; font-size: 13px; line-height: 1.55; }
+  .banner.on { display: block; }
+  .banner b { font-size: 13.5px; }
+  .banner code { font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+                 background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; }
+  .banner.warn { background: #2a2113; border-color: #8a6d3b; color: #f0d9a8; }
+  .banner.bad  { background: #331a17; border-color: #e5604a; color: #ffb3a3; }
+  .banner .dismiss { float: right; background: none; border: 1px solid currentColor;
+                     color: inherit; border-radius: 6px; padding: 1px 8px; cursor: pointer;
+                     font-size: 11px; opacity: .8; }
   .app {
     display: grid; gap: 18px; padding: 18px; align-items: start; justify-content: start;
     /* One screen, and nothing on it scrolls the page. The top row is exactly as
@@ -311,6 +326,7 @@
 </style>
 </head>
 <body>
+<div class="banner" id="banner"></div>
 <div class="app">
 
   <div class="board-area">
@@ -734,6 +750,51 @@ const sup = cmd => {
 
 // The weight file is ninety odd megabytes and only fetched when a network is
 // first asked for, so the wait is explained while it happens.
+// What the page says when something is wrong before a move is ever played.
+function banner(kind, html) {
+  const box = $("banner");
+  if (!kind) { box.className = "banner"; box.innerHTML = ""; return; }
+  box.className = "banner on " + kind;
+  box.innerHTML = '<button class="dismiss" onclick="this.parentNode.className=\'banner\'">'
+                + "dismiss</button>" + html;
+}
+
+// Asked once, at start-up, and BEFORE the ninety megabyte download -- a visitor
+// should learn that the card is unavailable in the first second, not after
+// waiting for a network they then cannot use properly.
+async function checkGpu() {
+  if (!WASM()) return true;                       // the served build has a card behind it
+  if (!navigator.gpu) {
+    banner("bad",
+      "<b>This browser has no WebGPU, so the engine cannot use the network properly.</b><br>"
+      + "It will fall back to running the network on the CPU, where one position takes "
+      + "seconds — at any sane time limit the search never gets past the opening move, "
+      + "and it plays from the network's first impression without searching at all. "
+      + "It is not broken, but it is <i>much</i> weaker than the engine is meant to be. "
+      + "WebGPU needs a recent Chrome, Edge or Safari.");
+    return false;
+  }
+  try {
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+    if (!adapter) {
+      banner("bad",
+        "<b>WebGPU is available but this browser would not give the page a graphics "
+        + "adapter, so the engine cannot use the network properly.</b><br>"
+        + "It falls back to the CPU, where one position takes seconds: the search never "
+        + "gets past the opening move and it plays from the network's first impression "
+        + "without searching. On Linux this is usually because hardware acceleration is "
+        + "off — try <code>chrome://gpu</code> to see why, and "
+        + "<code>chrome://flags/#enable-unsafe-webgpu</code> to turn it on.");
+      return false;
+    }
+    return true;
+  } catch (error) {
+    banner("bad", "<b>WebGPU failed to start: " + error.message + "</b><br>"
+      + "The engine falls back to the CPU, which is far too slow to search properly.");
+    return false;
+  }
+}
+
 // Once the network is up, say what is actually running it. A card and a cpu
 // fallback are not the same player at any time budget worth using.
 function netBackendNote() {
@@ -2535,6 +2596,19 @@ async function boot() {
   // means a panel that is full of puzzles is indistinguishable from one that
   // has none, which is exactly the wrong way round.
   try { await loadPuzzles(true); } catch (e) { /* no file yet is the normal case */ }
+  // If the card turns out to be computing something that is not the network,
+  // the page says so the moment it finds out rather than playing on.
+  window.DAEDALUS_ON_BROKEN = why => banner("bad",
+    "<b>The graphics card is not computing the network correctly, so the engine's "
+    + "moves are meaningless.</b><br>" + why
+    + ". Open <a href=\"verify.html\" style=\"color:inherit\">verify.html</a> for the "
+    + "full comparison against the reference implementation.");
+  if (!WASM() && window.DAEDALUS_ERROR) {
+    banner("bad", "<b>The engine did not start, so this page cannot play at all.</b><br>"
+      + window.DAEDALUS_ERROR);
+  } else {
+    await checkGpu();
+  }
   scheduleAi();
 }
 // app.js is fetching and instantiating the module while this file parses, so
