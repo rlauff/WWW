@@ -291,15 +291,27 @@
     async function runSearch(evaluator, play, sims) {
       const started = performance.now();
       if (!beginSearch(sims || 0)) return { ok: false, error: "the game is over" };
-      const out = {
-        logits: new Float32Array(16 * evaluator.net.actions),
-        values: new Float32Array(16), margins: new Float32Array(16),
-        sigmas: new Float32Array(16),
+      // Grown to fit whatever the search hands over, rather than sized to a
+      // constant. This was a flat 16 while the medium and high presets hand
+      // over 32: forward() filled the first 16, subarray(0, count) CLAMPED to
+      // the array's real length instead of throwing, and deliver() then gave
+      // the module 16 answers for a batch of 32 -- which it indexed past, and
+      // the page showed "index out of bounds" with nothing to say where from.
+      let cap = 0, out = null;
+      const fit = n => {
+        if (out && cap >= n) return;
+        cap = Math.max(n, 32);
+        out = {
+          logits: new Float32Array(cap * evaluator.net.actions),
+          values: new Float32Array(cap), margins: new Float32Array(cap),
+          sigmas: new Float32Array(cap),
+        };
       };
       for (let round = 0; round < 100000; round++) {
         const planes = searchPlanes();
         const count = searchCount();
         if (!count) break;
+        fit(count);
         await evaluator.forward(count, planes, out);
         checkSane(out, count, evaluator);
         deliver({
