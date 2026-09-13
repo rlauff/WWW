@@ -239,7 +239,10 @@
         if (!N) throw new Error("net.js is not on the page");
         const parsed = N.parseDaed(await weightBytes(onProgress));
         try {
-          net = await N.GpuNet.create(parsed, 16);
+          // Sized from the presets (see DAEDALUS_MAX_BATCH in index.html), not
+          // a constant here that drifts away from them. The batch-dependent
+          // buffers are a few hundred KB, so the ceiling is free.
+          net = await N.GpuNet.create(parsed, window.DAEDALUS_MAX_BATCH || 32);
         } catch (error) {
           // No card, or the browser will not hand one over. The reference is
           // CORRECT but about six seconds a position, which at any sane time

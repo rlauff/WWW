@@ -686,6 +686,15 @@ const PRESETS = {
   high:   { time: 0, sims: 4000, threads: 16, batch: 32, arena: 4194304, slice: 200, exploration: 2 },
 };
 
+// The card's activation buffers are sized once, when the network is uploaded,
+// and a forward pass with more leaves than they hold cannot run. app.js used a
+// hardcoded 16 while medium and high ask for 32, so on either of those every
+// forward threw "batch larger than the buffers" -- a move could not be played
+// and live analysis sat blank, because its driver hits the same path every
+// 60 ms. Published from the presets themselves so adding one cannot silently
+// reintroduce the mismatch.
+window.DAEDALUS_MAX_BATCH = Math.max(...Object.values(PRESETS).map(p => p.batch));
+
 for (const id of ["arena1", "arena2", "arenaA"]) {
   const select = $(id);
   for (const [value, text] of ARENAS) {

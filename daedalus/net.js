@@ -487,7 +487,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     async forward(batch, planes, out) {
-      if (batch > this.maxBatch) throw new Error("batch larger than the buffers");
+      if (batch > this.maxBatch) {
+        throw new Error("this batch is " + batch + " but the card's buffers hold "
+          + this.maxBatch + "; the engine's batch setting is above what the network"
+          + " was uploaded for");
+      }
       const d = this.device, w = this.w;
       d.queue.writeBuffer(this.bufIn, 0, planes, 0, batch * PLANES * CELLS);
 
