@@ -360,8 +360,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         compute: { module: d.createShaderModule({ code: LINEAR_WGSL }), entryPoint: "main" },
       });
 
-      // Every weight, uploaded once. 94 MB of f32 for a 256x20 network; the
-      // card holds it for the life of the page.
+      // Every weight, uploaded once -- 94 MB of f32 for a 256x20 network and
+      // about 142 MB for a 256x30; the card holds it for the life of the page.
       const put = layer => ({ ...layer, w: this.storage(layer.weight), b: this.storage(layer.bias) });
       this.w = {
         stem: put(net.stem),

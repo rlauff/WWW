@@ -2,3 +2,8 @@ subtext/
 quiver_mutations/
 rhombic_strips/
 dead-or-alive/
+# The network ships out of band, not through git: GitHub refuses any file
+# over 100 MB and a 256x30 champion is 142 MB. It is copied straight to the
+# web host with scp, so a pull here updates the page and leaves the deployed
+# network alone instead of reverting it.
+daedalus/weights/champ.daed

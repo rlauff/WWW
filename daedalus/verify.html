@@ -38,7 +38,14 @@ below runs here, in this browser.</p>
     for (const c of ["set threads 1","set batch 4","set sims 4000","set time_ms 600000",
                      "set temperature 0","set temp_plies 0","set arena 400000"]) w.cmd(c);
     w.cmd("set threads 1"); w.cmd("set batch 4");
-    w.cmd("moves 4 76 13 67 22 58");
+    // The empty board, explicitly. All three places that set up a position
+    // used to say `moves 4 76 13 67 22 58`, whose numeric indices this engine
+    // rejects as illegal -- cmd() returned the error and nothing looked at it,
+    // so every one of them silently measured the empty board while the code
+    // implied six plies. The expected values throughout were generated against
+    // that same empty board, so they are unaffected; only the code is now
+    // honest about which position it is testing.
+    w.cmd("newgame");
     let t = performance.now();
     const r = w.cmd("hint");
     check("move", r.label, "U");
@@ -82,13 +89,20 @@ below runs here, in this browser.</p>
       say();
     });
     line("  " + w.netStatus());
-    check("shape", net.net.channels + "x" + net.net.blocks, "256x20");
+    // The shape is whatever champ.daed declares. This used to assert "256x20"
+    // and reported FAIL the moment a deeper champion was deployed -- the net
+    // was fine, the test was stale. What matters is that the header parsed
+    // into something this engine can run, not a particular depth.
+    line('  <span class="dim">shape ' + net.net.channels + "x" + net.net.blocks
+         + ", " + (net.bytes ? (net.bytes / 1e6).toFixed(0) + " MB" : "") + "</span>");
+    check("channels", net.net.channels, 256);
+    check("depth is runnable", net.net.blocks >= 6 && net.net.blocks <= 64, true);
     check("backend", net.backend, net.backend);
     line('  <span class="dim">(' + ((performance.now() - t) / 1000).toFixed(1) + " s)</span>");
 
     line("");
     line("4. the card against the reference");
-    w.cmd("moves 4 76 13 67 22 58");
+    w.cmd("newgame");
     w.beginSearch(1);
     const planes = w.searchPlanes();
     const mk = n => ({ logits: new Float32Array(n * net.net.actions),
@@ -98,13 +112,15 @@ below runs here, in this browser.</p>
     t = performance.now();
     await net.forward(1, planes, got);
     const gpuMs = performance.now() - t;
-    // These are what the native engine says about this position with the
-    // network that ships beside this page. They move when the network is
-    // replaced, so they are here to confirm the right file was uploaded, not
-    // to say anything about the arithmetic -- that is the comparison below.
-    check("value  (champ.daed as shipped)", got.values[0], 0.4870, 2e-3);
-    check("margin (champ.daed as shipped)", got.margins[0], 4.601, 2e-2);
-    check("sigma  (champ.daed as shipped)", got.sigmas[0], 7.033, 2e-2);
+    // What the network shipping beside this page says about the empty board.
+    // They move when the network is replaced, so they are here to confirm the
+    // right file was uploaded, not to say anything about the arithmetic --
+    // that is the comparison below. Regenerate them with the network: gen0250
+    // (256x30) reads 0.3916 / 5.454 / 10.645, and its +5.45 step margin was
+    // confirmed independently against the native engine.
+    check("value  (champ.daed, empty board)", got.values[0], 0.3916, 2e-3);
+    check("margin (champ.daed, empty board)", got.margins[0], 5.454, 2e-2);
+    check("sigma  (champ.daed, empty board)", got.sigmas[0], 10.645, 2e-2);
     line('  <span class="dim">(' + gpuMs.toFixed(1) + " ms a position on "
          + net.backend + ")</span>");
 
@@ -166,7 +182,7 @@ below runs here, in this browser.</p>
     line("");
     line("5. a whole move, the page driving the search");
     w.cmd("set sims 200"); w.cmd("set batch 8");
-    w.cmd("moves 4 76 13 67 22 58");
+    w.cmd("newgame");
     t = performance.now();
     const move = await w.searchMove(false, 0, null);
     const ms = performance.now() - t;
