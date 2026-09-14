@@ -9,6 +9,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* Distinguish conferences and journals by color */
+    .tag.conference { color: #60a5fa; } /* Soft Light Blue */
+    .tag.journal { color: #4ade80; }    /* Soft Mint Green */
+
+  /* Wrapper to keep multiple tags stacked in the same column */
+  .tag-col-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+  }
+</style>
 </head>
 <body>
 
@@ -36,7 +49,7 @@
     <ol class="entries">
 
       <li class="entry">
-        <span class="tag">FPSAC 2026</span>
+        <span class="tag conference">FPSAC 2026</span>
         <div class="detail">
           <h3 class="title">UniTriSat: Unimodular Triangulations via satisfiability</h3>
           <p class="meta">Kyle Huang, Charles Zhang</p>
@@ -47,7 +60,7 @@
       </li>
 
       <li class="entry">
-        <span class="tag">WG 2025</span>
+        <span class="tag conference">WG 2025</span>
         <div class="detail">
           <h3 class="title">Subgraph-universal planar graphs for trees</h3>
           <p class="meta">Helena Bergold, Vesna Ir&scaron;i&ccaron;, Joachim Orthaber, Manfred Scheucher, Alexandra Wesolek</p>
@@ -58,7 +71,7 @@
       </li>
 
       <li class="entry">
-        <span class="tag">EuroCG 2025</span>
+        <span class="tag conference">EuroCG 2025</span>
         <div class="detail">
           <h3 class="title">On Triangles in Colored Pseudoline Arrangements</h3>
           <p class="meta">Yan Alves Radtke, Bal&aacute;zs Keszegh</p>
@@ -69,7 +82,7 @@
       </li>
 
       <li class="entry">
-        <span class="tag">EuroCG 2025</span>
+        <span class="tag conference">EuroCG 2025</span>
         <div class="detail">
           <h3 class="title">On Triangular Separation of Bichromatic Point Sets</h3>
           <p class="meta">Helena Bergold, Arun Kumar Das, Manfred Scheucher, Felix Schr&ouml;der, Marie Diana Sieper</p>
@@ -80,7 +93,10 @@
       </li>
 
       <li class="entry">
-        <a class="tag tag-link" href="https://epubs.siam.org/doi/10.1137/1.9781611978322.171" target="_blank" rel="noopener">SODA 2025</a>
+        <div class="tag-col-wrapper">
+          <a class="tag tag-link conference" href="https://epubs.siam.org/doi/10.1137/1.9781611978322.171" target="_blank" rel="noopener">SODA 2025</a>
+          <a class="tag tag-link journal" href="" target="_blank" rel="noopener">CT</a>
+        </div>
         <div class="detail">
           <h3 class="title">Facet-Hamiltonicity</h3>
           <p class="meta">Hugo Akitaya, Jean Cardinal, Stefan Felsner, Linda Kleist</p>
@@ -201,4 +217,4 @@
 </footer>
 
 </body>
-</html>
+
